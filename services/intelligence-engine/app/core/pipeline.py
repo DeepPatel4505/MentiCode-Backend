@@ -3,7 +3,7 @@ from app.domain.models import CodeBundle
 from app.domain.issue import AnalysisResult, Issue
 from app.services.syntax_validator import validate_syntax
 from app.utils.file_manager import create_temp_cpp, delete_temp_file
-from app.config import MAX_FILE_SIZE, SUPPORTED_LANGUAGES
+from app.config import MAX_FILE_SIZE, SUPPORTED_LANGUAGES, MAX_FILES
 from app.utils.logger import logger
 import uuid
 import time
@@ -27,7 +27,7 @@ class AnalysisPipeline:
                 ]
             )
         
-        if len(bundle.files) == 0:
+        if not bundle.files:
             return AnalysisResult(
                 bundleId=bundle.bundleId,
                 issues=[
@@ -40,7 +40,7 @@ class AnalysisPipeline:
                 ]
             )
             
-        if len(bundle.files) > 5:
+        if len(bundle.files) > MAX_FILES:
             return AnalysisResult(
                 bundleId=bundle.bundleId,
                 issues=[Issue(
@@ -57,20 +57,6 @@ class AnalysisPipeline:
 
         request_id = str(uuid.uuid4())
         logger.info(f"[{request_id}] Processing bundle {bundle.bundleId}")
-
-        # Validate language
-        if bundle.language not in SUPPORTED_LANGUAGES:
-            return AnalysisResult(
-                bundleId=bundle.bundleId,
-                issues=[
-                    Issue(
-                        type="unsupported_language",
-                        severity="critical",
-                        message="Unsupported language",
-                        confidence="high"
-                    )
-                ]
-            )
 
         # Only first file for MVP
         file = bundle.files[0]
