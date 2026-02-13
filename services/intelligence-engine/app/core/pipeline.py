@@ -14,6 +14,19 @@ class AnalysisPipeline:
         pass
     
     def run(self, bundle: CodeBundle) -> AnalysisResult:
+        if bundle.language not in SUPPORTED_LANGUAGES:
+            return AnalysisResult(
+                bundleId=bundle.bundleId,
+                issues=[
+                    Issue(
+                        type="unsupported_language",
+                        severity="critical",
+                        message="Unsupported language",
+                        confidence="high"
+                    )
+                ]
+            )
+        
         if len(bundle.files) == 0:
             return AnalysisResult(
                 bundleId=bundle.bundleId,
