@@ -1,0 +1,55 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Environment variables
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+*.tmp
+
+# Uvicorn
+*.pid
+
+# MyPy / typing
+.mypy_cache/
+
+# Coverage
+coverage.xml
+
+# Local config overrides
+config.local.py
