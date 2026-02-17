@@ -5,13 +5,28 @@ from app.services.syntax_validator import validate_syntax
 from app.utils.file_manager import create_temp_cpp, delete_temp_file
 from app.config import MAX_FILE_SIZE, SUPPORTED_LANGUAGES, MAX_FILES
 from app.utils.logger import logger
+from app.services.static_rules.rules.assignment_in_condition import AssignmentInConditionRule
+from app.services.static_rules.rules.unconditional_loop import UnconditionalLoopRule
+from app.services.static_rules.rules.division_rule import DivisionByVariableRule
+from app.services.static_rules.rules.vector_rule import VectorIndexWithoutResizeRule
+from app.services.static_rules.rules.loop_bound import LoopBoundRiskRule
+from app.services.static_rules.registry import RuleRegistry
+from app.services.static_rules.engine import StaticRuleEngine
 import uuid
 import time
+
+
 
 class AnalysisPipeline:
 
     def __init__(self):
-        pass
+        registry = RuleRegistry()
+        registry.register(AssignmentInConditionRule())
+        registry.register(UnconditionalLoopRule())
+        registry.register(DivisionByVariableRule())
+        registry.register(VectorIndexWithoutResizeRule())
+        registry.register(LoopBoundRiskRule())
+        self.static_engine = StaticRuleEngine(registry)
     
     def run(self, bundle: CodeBundle) -> AnalysisResult:
         if bundle.language not in SUPPORTED_LANGUAGES:
@@ -82,9 +97,13 @@ class AnalysisPipeline:
             start_syntax = time.time()
             syntax_issues = validate_syntax(temp_path)
             issues.extend(syntax_issues)
+            
+            logger.info(f"[{request_id}] Syntax validation time: {time.time() - start_syntax:.2f} seconds")
+            if not any(issue.severity == "critical" for issue in issues):
+                static_issues = self.static_engine.run(code)
+                issues.extend(static_issues)
 
         finally:
-            logger.info(f"[{request_id}] Syntax validation time: {time.time() - start_syntax:.2f} seconds")
             logger.info(f"[{request_id}] Total processing time: {time.time() - start_total:.2f} seconds")
             delete_temp_file(temp_path)
 

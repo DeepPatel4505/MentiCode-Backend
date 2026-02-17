@@ -1,0 +1,36 @@
+# Node / dependency artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env
+src/.env
+src/.env.local
+*.env.local
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Build artifacts (if added in future)
+dist/
+build/
+tmp/
+temp/
+
