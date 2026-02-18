@@ -118,6 +118,32 @@ def test_pipeline_multiple_files_only_first_processed(pipeline):
     assert result.issues == []
 
 
+def test_pipeline_static_rules_on_valid_code(pipeline):
+    """Test that static rules run on syntactically valid code and produce issues with source=static_rule."""
+    bundle = CodeBundle(
+        bundleId="test-static",
+        language="cpp",
+        files=[
+            FileInput(
+                path="main.cpp",
+                content="""
+#include <vector>
+int main() {
+    std::vector<int> v;
+    int x = v[0];
+    return 0;
+}
+""",
+            )
+        ],
+    )
+    result = pipeline.run(bundle)
+    assert result.bundleId == "test-static"
+    static_issues = [i for i in result.issues if getattr(i, "source", None) == "static_rule"]
+    assert len(static_issues) >= 1
+    assert any(i.type == "vector_index_without_resize" for i in static_issues)
+
+
 def test_pipeline_request_tracking(pipeline):
     """Test that pipeline logs request IDs for tracking"""
     import logging

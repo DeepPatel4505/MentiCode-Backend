@@ -1,39 +1,52 @@
 import express from "express";
+import helmet from "helmet";
+import cors from "cors";
 import config from "./config/config.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import codeReviewRoutes from "./routes/codeReviewRoutes.js";
+import { createRequire } from "module";
+
+// Read version from package.json at startup (once, not per-request).
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 
 const app = express();
 
-// Core middleware
+// ── Security ────────────────────────────────────────────────────────────
+app.use(helmet());
+app.use(cors());
+
+// ── Core middleware ─────────────────────────────────────────────────────
 app.use(express.json({ limit: "256kb" }));
 
-// Lightweight request logging suitable for production; can be swapped for
-// a dedicated logging library later without changing application code.
+// Structured request logging with nanosecond-precision timing.
 app.use(requestLogger);
 
-// Health check endpoint for monitoring and orchestration systems.
+// ── Health check (orchestration / monitoring) ───────────────────────────
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "ok",
         env: config.env,
+        version,
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
     });
 });
 
-// Basic landing route
+// ── Landing route ───────────────────────────────────────────────────────
 app.get("/", (req, res) => {
     res.send("Welcome to the Intelligence Engine v3 API");
 });
 
-// Application routes
+// ── Application routes ──────────────────────────────────────────────────
 app.use("/code_review", codeReviewRoutes);
 
-// 404 handler
+// ── 404 handler ─────────────────────────────────────────────────────────
 app.use(notFoundHandler);
 
-// Centralized error handler (must be last)
+// ── Centralized error handler (must be last) ────────────────────────────
 app.use(errorHandler);
 
 export default app;

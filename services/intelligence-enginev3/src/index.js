@@ -1,43 +1,33 @@
 import http from "http";
 import app from "./app.js";
 import config from "./config/config.js";
+import logger from "./utils/logger.js";
 
 function startServer() {
     try {
         const server = http.createServer(app);
 
         server.listen(config.port, () => {
-            // Keep startup log minimal but structured for production.
-            // In a real logging system, this would use a logger utility.
-            console.log(
-                JSON.stringify({
-                    level: "info",
-                    msg: "HTTP server started",
-                    port: config.port,
-                    env: config.env,
-                }),
-            );
+            logger.info("server_started", {
+                port: config.port,
+                env: config.env,
+                pid: process.pid,
+                nodeVersion: process.version,
+            });
         });
 
+        // ── Graceful shutdown ───────────────────────────────────────────
         const shutdown = (signal) => {
-            console.log(
-                JSON.stringify({
-                    level: "info",
-                    msg: "Shutting down HTTP server",
-                    signal,
-                }),
-            );
+            logger.info("server_shutting_down", { signal });
+
             server.close((err) => {
                 if (err) {
-                    console.error(
-                        JSON.stringify({
-                            level: "error",
-                            msg: "Error during HTTP server shutdown",
-                            error: err.message,
-                        }),
-                    );
+                    logger.error("server_shutdown_error", {
+                        error: err.message,
+                    });
                     process.exit(1);
                 }
+                logger.info("server_stopped", { signal });
                 process.exit(0);
             });
         };
@@ -47,13 +37,10 @@ function startServer() {
 
         return server;
     } catch (err) {
-        console.error(
-            JSON.stringify({
-                level: "fatal",
-                msg: "FATAL STARTUP ERROR — Server crashed before boot",
-                error: err.message,
-            }),
-        );
+        logger.fatal("server_startup_crash", {
+            error: err.message,
+            stack: err.stack,
+        });
         process.exit(1);
     }
 }

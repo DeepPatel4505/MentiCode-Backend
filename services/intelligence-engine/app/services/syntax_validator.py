@@ -27,7 +27,8 @@ def validate_syntax(file_path: str) -> List[Issue]:
                 type="compiler_timeout",
                 severity="critical",
                 message="Compilation timed out",
-                confidence="high"
+                confidence="high",
+                source="compiler",
             )
         ]
 
@@ -38,7 +39,8 @@ def validate_syntax(file_path: str) -> List[Issue]:
                 type="compiler_execution_failure",
                 severity="critical",
                 message="Internal compiler execution failure",
-                confidence="medium"
+                confidence="medium",
+                source="compiler",
             )
         ]
 
@@ -58,7 +60,8 @@ def validate_syntax(file_path: str) -> List[Issue]:
                     type="compilation_failed",
                     severity="critical",
                     message="Compilation failed (unrecognized error format)",
-                    confidence="medium"
+                    confidence="medium",
+                    source="compiler",
                 )
             ]
         else:
@@ -67,7 +70,8 @@ def validate_syntax(file_path: str) -> List[Issue]:
                     type="compilation_failed",
                     severity="critical",
                     message="Compilation failed without error output",
-                    confidence="low"
+                    confidence="low",
+                    source="compiler",
                 )
             ]
 
@@ -96,7 +100,8 @@ def parse_compiler_errors(stderr: str) -> List[Issue]:
                     severity="critical",
                     line=line_number,
                     message=message,
-                    confidence="high"
+                    confidence="high",
+                    source="compiler",
                 )
             )
 
@@ -108,7 +113,8 @@ def parse_compiler_errors(stderr: str) -> List[Issue]:
                 severity="critical",
                 line=None,
                 message="Compilation failed but error format unrecognized",
-                confidence="medium"
+                confidence="medium",
+                source="compiler",
             )
         ]
 

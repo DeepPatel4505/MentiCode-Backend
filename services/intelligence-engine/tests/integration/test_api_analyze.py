@@ -135,3 +135,44 @@ def test_analyze_exception_handling():
     assert len(data["issues"]) >= 1
     assert data["issues"][0]["type"] == "engine_failure"
     assert data["issues"][0]["severity"] == "critical"
+
+
+def test_analyze_explain_returns_schema():
+    """Test /analyze/explain returns expected schema with mocked LLM"""
+    from app.domain.explanation import LLMExplanation, ExplanationSummary, Finding
+    from unittest.mock import AsyncMock
+
+    mock_explanation = LLMExplanation(
+        summary=ExplanationSummary(risk_level="medium", overall_quality=65.0),
+        findings=[
+            Finding(
+                category="bug",
+                severity="critical",
+                line_range=[2, 2],
+                issue="Missing semicolon",
+                why_it_matters="Causes syntax error",
+                hint="Add ; after the statement",
+                guided_fix="Add ; before return",
+            )
+        ],
+        final_solution=None,
+    )
+
+    with patch("app.main.explain", new_callable=AsyncMock, return_value=mock_explanation):
+        response = client.post("/analyze/explain", json={
+            "bundleId": "test-explain",
+            "language": "cpp",
+            "files": [
+                {"path": "main.cpp", "content": "int main(){ int x = 5 return 0; }"}
+            ]
+        })
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "bundleId" in data
+    assert "analysis" in data
+    assert "summary" in data
+    assert "findings" in data
+    assert "final_solution" in data
+    assert data["summary"]["risk_level"] in ("low", "medium", "high")
+    assert "overall_quality" in data["summary"]

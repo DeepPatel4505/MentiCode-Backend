@@ -1,154 +1,237 @@
-# Intelligence Engine v2 - Implementation Summary
+# Intelligence Engine v2 — Implementation Summary
 
 ## Project Overview
-Intelligence Engine v2 is a Node.js-based AI-powered code analysis service that leverages large language models to detect, validate, and explain code issues. The service runs on port 4002 and exposes a REST API for code analysis.
+
+Intelligence Engine v2 is a Node.js-based AI-powered code analysis microservice that leverages large language models to detect, validate, and explain code issues. It runs on a configurable port (default **4002**) and exposes a REST API that accepts source code and returns structured findings with severity, confidence scores, and guided fixes.
+
+---
 
 ## Architecture
 
+### High-Level Data Flow
+
+```
+Input Code
+    ↓
+[Preprocess] — Add line numbers for precise location tracking
+    ↓
+[Detect]     — LLM identifies potential bugs, security & performance issues
+    ↓
+[Validate]   — LLM filters speculative / incorrect findings
+    ↓
+[Explain]    — LLM enriches findings with severity, explanation & guided fixes
+    ↓
+[Output]     — Structured JSON with findings array
+```
+
+Each stage is wrapped in a **retry handler** that attempts up to a configurable number of calls (default 2) and validates output against a **Zod schema** before proceeding. Every stage is timed with `process.hrtime.bigint()` for nanosecond-precision performance logging.
+
+---
+
 ### Core Components
 
-#### 1. **Pipeline** (`src/core/pipeline.js`)
-- **Main Entry Point**: `analyze(code)` function
-- **Workflow**:
-  1. Preprocesses code by adding line numbers
-  2. Runs detection stage to identify potential issues
-  3. Validates detection results
-  4. Explains findings with detailed context
-- **Output**: Structured findings with details and confidence scores
+#### 1. Entry Point — `src/index.js`
 
-#### 2. **Model Client** (`src/core/model-client.js`)
-- **Purpose**: Interface with Ollama LLM service
-- **Configuration**:
-  - Model: `qwen:8b`
-  - Endpoint: `http://localhost:11434/api/generate`
-  - Temperature: 0 (deterministic)
-  - Top P: 1, Top K: 40
-- **Function**: `runModel(prompt)` - sends prompts to LLM and returns responses
+- Express.js HTTP server with CORS, body size limits, and graceful shutdown
+- `GET /health` — health check endpoint returning uptime and timestamp
+- `POST /analyze` — code analysis endpoint with request validation middleware
+- Global error-handling middleware with consistent JSON error responses
+- Graceful shutdown on `SIGTERM` / `SIGINT` with 10s drain timeout
+- All configuration sourced from centralized `config.js`
 
-#### 3. **Validator** (`src/core/validator.js`)
-- **Purpose**: Validates and sanitizes LLM output
-- **Validation Steps**:
-  1. Safe JSON parsing with fallback handling
-  2. Schema validation using Zod
-  3. Line range validation (ensures ranges fit within code)
-  4. Confidence threshold filtering (minimum 0.6 by default)
-  5. Duplicate removal (based on category, line range, and issue)
-  6. Result capping (max 8 findings by default)
-- **Output**: Cleaned findings array
+#### 2. Configuration — `src/config.js`
 
-#### 4. **Schema Definitions** (`src/core/schema/`)
-- `detect.schema.js` - Detection output schema
-- `validate.schema.js` - Validation output schema
-- `explain.schema.js` - Explanation output schema
-- `final.schema.js` - Final combined findings schema
-- All schemas validated using Zod library
+- Centralized, environment-backed configuration using `dotenv`
+- All values frozen with `Object.freeze()` to prevent accidental mutation
+- Covers: server port, Node environment, Ollama URL/model/parameters, analysis thresholds, body limit
 
-### Utility Modules
+#### 3. Pipeline — `src/core/pipeline.js`
 
-#### 1. **Retry Handler** (`src/utils/retry.js`)
-- **Function**: `safeRun(prompt, schema)`
-- **Features**:
-  - Retries up to 2 times on failure
-  - JSON parsing with error handling
-  - Schema validation on each attempt
-  - Returns empty findings array on complete failure
-- **Purpose**: Ensures resilience against LLM parsing failures
+- **`analyze(code)`** — main orchestrator function
+- Runs three sequential LLM stages: **Detect → Validate → Explain**
+- Each stage timed with `process.hrtime.bigint()` and logged via structured logger
+- Total analysis duration logged in seconds with nanosecond precision (9 decimal places)
 
-#### 2. **Code Preprocessor** (`src/utils/code-preproccess.js`)
-- **Function**: `numberLines(code)`
-- **Purpose**: Adds line numbers to code for precise issue location
-- **Format**: `1: code line`, `2: code line`, etc.
+#### 4. Model Client — `src/core/model-client.js`
 
-### Prompt Modules
+- **`runModel(prompt)`** — sends prompts to a local Ollama instance
+- Uses `AbortController` with configurable timeout (default 60s)
+- Structured error messages for timeouts, HTTP errors, and network failures
+- All parameters (URL, model, temperature, top_p, top_k, max tokens) from config
 
-The service uses specialized prompts for each analysis stage:
+#### 5. Validator — `src/core/validator.js`
 
-- `prompts/detect.js` - Detection prompt building
-- `prompts/validate.js` - Validation prompt building
-- `prompts/explain.js` - Explanation prompt building
+- **`validateModelOutput(rawOutput, options)`** — multi-step sanitization of raw LLM JSON
+- **Validation pipeline**:
+  1. Safe JSON parse (returns empty findings on failure)
+  2. Zod schema validation against `DetectOutputSchema`
+  3. Line range enforcement (`start ≥ 1`, `end ≤ totalLines`, `start ≤ end`)
+  4. Confidence threshold filtering (configurable, default `≥ 0.6`)
+  5. Duplicate removal (keyed on `category + line_range + issue`)
+  6. Result capping (configurable, default max **8** findings)
+- Logs each step with structured logger
 
-## API Endpoints
+#### 6. Retry Handler — `src/utils/retry.js`
 
-### POST `/analyze`
-**Request Body**:
+- **`safeRun(prompt, schema)`** — resilience wrapper used by the pipeline
+- Configurable retry count (default 2 attempts)
+- Logs each attempt and failure with structured logger
+- Falls back to `{ findings: [] }` on complete failure
+
+#### 7. Logger — `src/utils/logger.js`
+
+- Structured logger with `[DEBUG]`, `[INFO]`, `[WARN]`, `[ERROR]` levels
+- ISO-8601 timestamps on every log line
+- JSON metadata support for structured fields
+- **High-resolution timer**: `startTimer()` / `endTimer()` / `logStageTime()` using `process.hrtime.bigint()` (nanosecond precision, formatted in seconds)
+- Log level configurable via `LOG_LEVEL` environment variable
+
+#### 8. Code Preprocessor — `src/utils/code-preproccess.js`
+
+- **`numberLines(code)`** — prepends `1: `, `2: `, etc. to each line
+- Enables the LLM to reference precise line locations in its output
+
+---
+
+### Middleware
+
+#### Error Handler — `src/middleware/error-handler.js`
+
+- Global Express error-handling middleware (registered last)
+- Returns consistent `{ error, statusCode, message }` JSON responses
+- Hides stack traces in production; logs full traces in development
+
+#### Request Validator — `src/middleware/validate-request.js`
+
+- Validates `POST /analyze` body: `code` is required non-empty string
+- Validates `language` type if present
+- Returns `400` with detailed error messages on invalid input
+
+---
+
+### Schema Definitions — `src/core/schema/`
+
+All schemas are defined with **Zod v4** and enforce strict typing on LLM outputs.
+
+| File | Schema | Key Fields |
+|------|--------|------------|
+| `detect.schema.js` | `DetectOutputSchema` | `line_range`, `category` (bug / security / performance), `reason`, `confidence` (optional) |
+| `validate.schema.js` | `ValidateOutputSchema` | Reuses `DetectFindingSchema`, max 12 findings |
+| `explain.schema.js` | `ExplainOutputSchema` | `line_range`, `category`, `severity` (minor / major / critical), `issue`, `why_it_matters`, `hint`, `guided_fix`, `confidence` |
+| `final.schema.js` | `FinalOutputSchema` | Adds `version: "v2"`, `summary` (risk_level, overall_quality), plus `ExplainFindingSchema` findings |
+| `index.js` | Barrel export | Proper ESM re-exports for all schemas |
+
+---
+
+### Prompt Modules — `src/prompts/`
+
+| File | Builder Function | Purpose |
+|------|-----------------|---------|
+| `detect.js` | `buildDetectPrompt(code)` | Instructs the LLM to find functional/security bugs; ignores style issues |
+| `validate.js` | `buildValidatePrompt(code, findings)` | Instructs the LLM to remove unsubstantiated or speculative findings |
+| `explain.js` | `buildExplainPrompt(code, findings)` | Instructs the LLM to enrich each finding with severity, explanation, and a guided fix |
+
+---
+
+## API Reference
+
+### `GET /health`
+
+**Response (200):**
 ```json
 {
-  "language": "javascript",
-  "code": "// code to analyze"
+  "status": "ok",
+  "uptime": 13.61,
+  "timestamp": "2026-02-18T16:27:17.861Z"
 }
 ```
 
-**Response**:
+### `POST /analyze`
+
+**Request body:**
+```json
+{
+  "language": "javascript",
+  "code": "function foo(x) { return x + 1; }"
+}
+```
+
+**Response body (from Explain stage):**
 ```json
 {
   "findings": [
     {
-      "category": "string",
-      "issue": "string",
-      "line_range": [start, end],
-      "confidence": 0.0-1.0,
-      "explanation": "string"
+      "line_range": [2, 4],
+      "category": "bug",
+      "severity": "major",
+      "issue": "Short description of the issue",
+      "why_it_matters": "Detailed explanation of impact",
+      "hint": "Quick suggestion",
+      "guided_fix": "Step-by-step fix instructions",
+      "confidence": 0.85
     }
   ]
 }
 ```
 
-## Data Flow
-
-```
-Input Code
-    ↓
-[Preprocess] - Add line numbers
-    ↓
-[Detect] - Identify potential issues (LLM + Schema Validation)
-    ↓
-[Validate] - Confirm and refine findings (LLM + Schema Validation)
-    ↓
-[Explain] - Generate detailed explanations (LLM + Schema Validation)
-    ↓
-[Output] - Structured findings with confidence scores
+**Error response (400):**
+```json
+{
+  "error": true,
+  "statusCode": 400,
+  "message": "Invalid request body.",
+  "details": ["'code' is required."]
+}
 ```
 
-## Key Features
-
-1. **Multi-Stage Analysis**: Detection → Validation → Explanation pipeline
-2. **Resilient Error Handling**: Retry logic and graceful fallbacks
-3. **Output Sanitization**: JSON parsing, schema validation, duplicate removal
-4. **Configurable Thresholds**: Confidence levels, max findings count
-5. **Line Precision**: Accurate code issue location using line numbering
-6. **Deterministic Results**: Temperature set to 0 for consistent outputs
+---
 
 ## Technology Stack
 
-- **Runtime**: Node.js (CommonJS)
-- **Framework**: Express.js
-- **LLM Engine**: Ollama (qwen:8b model)
-- **Validation**: Zod (schema validation)
-- **HTTP**: Native fetch API
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js ≥ 18 (ES Modules) |
+| Framework | Express.js |
+| LLM Backend | Ollama (`qwen3:8b`) |
+| Validation | Zod v4 |
+| HTTP Client | Native `fetch` API |
+| Config | dotenv |
+| CORS | cors middleware |
+
+---
 
 ## Configuration
 
-### Ollama Service
-- Address: `http://localhost:11434`
-- Model: `qwen:8b`
-- Must be running for the service to function
+All configuration is managed in `src/config.js` and backed by environment variables (loaded from `.env` via dotenv).
 
-### Analysis Options
-- **minConfidence**: 0.6 (default)
-- **maxFindings**: 8 (default)
-- **totalLines**: Automatically calculated from input code
+| Parameter | Env Variable | Default |
+|-----------|-------------|---------|
+| Server port | `PORT` | `4002` |
+| Environment | `NODE_ENV` | `development` |
+| Ollama endpoint | `OLLAMA_URL` | `http://localhost:11434/api/generate` |
+| LLM model | `OLLAMA_MODEL` | `qwen3:8b` |
+| Temperature | `MODEL_TEMPERATURE` | `0` |
+| Top P | `MODEL_TOP_P` | `1` |
+| Top K | `MODEL_TOP_K` | `40` |
+| Max token prediction | `MODEL_MAX_TOKENS` | `400` |
+| Request timeout | `MODEL_TIMEOUT_MS` | `60000` |
+| Confidence threshold | `MIN_CONFIDENCE` | `0.6` |
+| Max findings | `MAX_FINDINGS` | `8` |
+| Retry attempts | `MAX_RETRIES` | `2` |
+| Body size limit | `BODY_LIMIT` | `1mb` |
+| Log level | `LOG_LEVEL` | `DEBUG` |
 
-## Error Handling
+---
 
-1. **Failed LLM Response**: Retries up to 2 times, then returns empty findings
-2. **Invalid JSON**: Safely caught and handled, returns empty findings
-3. **Schema Validation Failure**: Filtered or excluded from results
-4. **Invalid Line Ranges**: Removed from results
-5. **Low Confidence Findings**: Filtered based on threshold
+## Error Handling Strategy
 
-## Deployment Notes
-
-- Service runs on port **4002**
-- Requires Ollama service running on localhost:11434
-- Uses CommonJS module system
-- Expects Express.js and Zod as dependencies
+| Scenario | Behaviour |
+|----------|-----------|
+| Invalid request body | 400 with detailed validation errors |
+| LLM returns invalid JSON | Retries up to configured attempts, then returns `{ findings: [] }` |
+| Schema validation fails | Finding excluded from results |
+| Invalid line ranges | Removed by validator |
+| Low confidence findings | Filtered by threshold |
+| Ollama unreachable / timeout | Error caught by retry handler; structured error logged |
+| Unhandled server error | Global error handler returns consistent JSON error response |
+| SIGTERM / SIGINT | Graceful shutdown with 10s connection drain timeout |

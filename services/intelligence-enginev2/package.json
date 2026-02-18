@@ -1,17 +1,20 @@
 {
   "name": "intelligence-enginev2",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "AI-powered code analysis service — multi-stage LLM pipeline for detecting, validating, and explaining code issues",
   "license": "ISC",
-  "author": "",
+  "author": "MentiCode",
   "type": "module",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js && node --check src/core/pipeline.js && node --check src/core/model-client.js && node --check src/core/validator.js && node --check src/utils/retry.js && node --check src/utils/logger.js && node --check src/config.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "zod": "^4.3.6"
   }
 }

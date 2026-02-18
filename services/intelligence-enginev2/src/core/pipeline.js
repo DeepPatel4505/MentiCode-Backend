@@ -6,64 +6,58 @@ import { buildExplainPrompt } from "../prompts/explain.js";
 import { DetectOutputSchema } from "./schema/detect.schema.js";
 import { ValidateOutputSchema } from "./schema/validate.schema.js";
 import { ExplainOutputSchema } from "./schema/explain.schema.js";
-import { performance } from "node:perf_hooks";
+import logger from "../utils/logger.js";
 
+/**
+ * Run the full Detect → Validate → Explain analysis pipeline.
+ *
+ * Each stage is individually timed with `process.hrtime.bigint()` for
+ * nanosecond-precision duration logging (displayed in seconds).
+ *
+ * @param {string} code — raw source code to analyse
+ * @returns {Promise<object>} enriched findings from the Explain stage
+ */
 export async function analyze(code) {
-    const analysisStart = performance.now();
+    const totalStart = logger.startTimer();
 
     const numbered = numberLines(code);
 
-    // ---------------- DETECT ----------------
-    const detectStart = performance.now();
+    // ──────────────── DETECT ────────────────
+    const detectStart = logger.startTimer();
 
     const detection = await safeRun(
         buildDetectPrompt(numbered),
         DetectOutputSchema,
     );
 
-    const detectEnd = performance.now();
+    logger.logStageTime("Detect", detectStart);
+    logger.debug("Detection results", { findingCount: detection?.findings?.length ?? 0 });
 
-    console.log("Detection Results:", detection);
-    console.log(
-        `Detect Stage Time: ${(detectEnd - detectStart).toFixed(2)} ms`,
-    );
-
-    // ---------------- VALIDATE ----------------
-    const validateStart = performance.now();
+    // ──────────────── VALIDATE ──────────────
+    const validateStart = logger.startTimer();
 
     const validated = await safeRun(
         buildValidatePrompt(numbered, detection),
         ValidateOutputSchema,
     );
 
-    const validateEnd = performance.now();
+    logger.logStageTime("Validate", validateStart);
+    logger.debug("Validation results", { findingCount: validated?.findings?.length ?? 0 });
 
-    console.log("Validation Results:", validated);
-    console.log(
-        `Validate Stage Time: ${(validateEnd - validateStart).toFixed(2)} ms`,
-    );
-
-    // ---------------- EXPLAIN ----------------
-    const explainStart = performance.now();
+    // ──────────────── EXPLAIN ───────────────
+    const explainStart = logger.startTimer();
 
     const final = await safeRun(
         buildExplainPrompt(numbered, validated),
         ExplainOutputSchema,
     );
 
-    const explainEnd = performance.now();
+    logger.logStageTime("Explain", explainStart);
+    logger.debug("Explanation results", { findingCount: final?.findings?.length ?? 0 });
 
-    console.log("Explanation Results:", final);
-    console.log(
-        `Explain Stage Time: ${(explainEnd - explainStart).toFixed(2)} ms`,
-    );
-
-    // ---------------- TOTAL ----------------
-    const analysisEnd = performance.now();
-
-    console.log(
-        `Total Analysis Time: ${(analysisEnd - analysisStart).toFixed(2)} ms`,
-    );
+    // ──────────────── TOTAL ─────────────────
+    const { elapsedSec } = logger.endTimer(totalStart);
+    logger.info(`✅ Analysis complete`, { totalDuration: elapsedSec, findings: final?.findings?.length ?? 0 });
 
     return final;
 }

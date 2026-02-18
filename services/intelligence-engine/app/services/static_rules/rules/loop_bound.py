@@ -19,7 +19,8 @@ class LoopBoundRiskRule(StaticRule):
                         severity="major",
                         line=i+1,
                         message="Loop uses '<=' bound. Check for off-by-one error.",
-                        confidence="medium"
+                        confidence="medium",
+                        source="static_rule",
                     )
                 )
 

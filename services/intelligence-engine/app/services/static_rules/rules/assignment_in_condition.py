@@ -28,7 +28,8 @@ class AssignmentInConditionRule(StaticRule):
                         severity="major",
                         line=i,
                         message="Assignment used inside condition. Did you mean '=='?",
-                        confidence="high"
+                        confidence="high",
+                        source="static_rule",
                     )
                 )
 

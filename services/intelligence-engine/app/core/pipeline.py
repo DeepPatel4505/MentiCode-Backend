@@ -7,9 +7,14 @@ from app.config import MAX_FILE_SIZE, SUPPORTED_LANGUAGES, MAX_FILES
 from app.utils.logger import logger
 from app.services.static_rules.rules.assignment_in_condition import AssignmentInConditionRule
 from app.services.static_rules.rules.unconditional_loop import UnconditionalLoopRule
+from app.services.static_rules.rules.for_ever_loop import ForEverLoopRule
 from app.services.static_rules.rules.division_rule import DivisionByVariableRule
+from app.services.static_rules.rules.division_by_zero_literal import DivisionByZeroLiteralRule
 from app.services.static_rules.rules.vector_rule import VectorIndexWithoutResizeRule
 from app.services.static_rules.rules.loop_bound import LoopBoundRiskRule
+from app.services.static_rules.rules.unsafe_string_functions import UnsafeStringFunctionsRule
+from app.services.static_rules.rules.null_pointer_check import NullPointerDereferenceRiskRule
+from app.services.static_rules.rules.array_bounds_risk import ArrayBoundsRiskRule
 from app.services.static_rules.registry import RuleRegistry
 from app.services.static_rules.engine import StaticRuleEngine
 import uuid
@@ -23,9 +28,14 @@ class AnalysisPipeline:
         registry = RuleRegistry()
         registry.register(AssignmentInConditionRule())
         registry.register(UnconditionalLoopRule())
+        registry.register(ForEverLoopRule())
         registry.register(DivisionByVariableRule())
+        registry.register(DivisionByZeroLiteralRule())
         registry.register(VectorIndexWithoutResizeRule())
         registry.register(LoopBoundRiskRule())
+        registry.register(UnsafeStringFunctionsRule())
+        registry.register(NullPointerDereferenceRiskRule())
+        registry.register(ArrayBoundsRiskRule())
         self.static_engine = StaticRuleEngine(registry)
     
     def run(self, bundle: CodeBundle) -> AnalysisResult:
@@ -104,7 +114,7 @@ class AnalysisPipeline:
                 issues.extend(static_issues)
 
         finally:
-            logger.info(f"[{request_id}] Total processing time: {time.time() - start_total:.2f} seconds")
+            logger.info(f"[{request_id}] Total Analysis time: {time.time() - start_total:.2f} seconds")
             delete_temp_file(temp_path)
 
         return AnalysisResult(

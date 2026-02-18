@@ -22,7 +22,8 @@ class UnconditionalLoopRule(StaticRule):
                             severity="major",
                             line=i+1,
                             message="Unconditional loop detected. Ensure termination condition exists.",
-                            confidence="medium"
+                            confidence="medium",
+                            source="static_rule",
                         )
                     )
 

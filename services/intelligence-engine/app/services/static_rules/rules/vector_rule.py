@@ -24,7 +24,7 @@ class VectorIndexWithoutResizeRule(StaticRule):
                 var_name = match_no_size.group(1)
                 vector_vars[var_name] = {
                     "decl_line": i + 1,
-                    "safe": False
+                    "safe": False,
                 }
 
             # Match: vector<int> v(n);
@@ -34,11 +34,11 @@ class VectorIndexWithoutResizeRule(StaticRule):
                 # Mark safe immediately
                 vector_vars[var_name] = {
                     "decl_line": i + 1,
-                    "safe": True
+                    "safe": True,
                 }
 
         # Step 2: scan for resize or push_back
-        for i, line in enumerate(lines):
+        for _, line in enumerate(lines):
             for var in vector_vars:
                 if re.search(rf"\b{var}\.resize\s*\(", line) or \
                    re.search(rf"\b{var}\.push_back\s*\(", line):
@@ -55,7 +55,8 @@ class VectorIndexWithoutResizeRule(StaticRule):
                                 severity="major",
                                 line=i + 1,
                                 message=f"Vector '{var}' indexed without resize or size constructor.",
-                                confidence="medium"
+                                confidence="medium",
+                                source="static_rule",
                             )
                         )
 

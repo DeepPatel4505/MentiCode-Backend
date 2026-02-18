@@ -1,27 +1,31 @@
-const generateRequestId = () =>
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+import crypto from "crypto";
+import logger from "../utils/logger.js";
 
 export const requestLogger = (req, res, next) => {
-    const start = Date.now();
+    // Nanosecond-precision timer via process.hrtime.bigint().
+    const elapsed = logger.startTimer();
 
-    // Attach a lightweight request id for correlation.
-    req.id = req.id || generateRequestId();
+    // RFC 4122 v4 UUID — cryptographically random, globally unique.
+    req.id = req.headers["x-request-id"] || crypto.randomUUID();
+
+    // Propagate request ID to downstream consumers via response header.
+    res.setHeader("X-Request-Id", req.id);
 
     res.on("finish", () => {
-        const durationMs = Date.now() - start;
-        const logEntry = {
-            level: "info",
-            msg: "http_request",
+        const { durationNs, durationMs, durationSec } = elapsed();
+
+        logger.info("http_request", {
+            requestId: req.id,
             method: req.method,
             path: req.originalUrl || req.url,
             statusCode: res.statusCode,
+            contentLength: res.getHeader("content-length") || 0,
+            userAgent: req.headers["user-agent"] || "-",
+            durationNs,
             durationMs,
-            requestId: req.id,
-        };
-
-        console.log(JSON.stringify(logEntry));
+            durationSec,
+        });
     });
 
     next();
 };
-
