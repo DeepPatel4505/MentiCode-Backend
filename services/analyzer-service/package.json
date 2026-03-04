@@ -1,0 +1,39 @@
+{
+    "name": "analysis-service",
+    "version": "1.0.0",
+    "description": "",
+    "main": "src/server.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "test:flow": "node scripts/project-flow-test.mjs",
+        "test:phase3": "node scripts/phase3-flow-test.mjs",
+        "test:complete-flow": "node scripts/complete-flow-test.mjs",
+        "test:complete-flow:no-worker": "node scripts/complete-flow-test.no-worker.mjs",
+        "start": "node src/server.js",
+        "worker": "node src/workers/analysis.worker.js",
+        "dev": "nodemon src/server.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "@bull-board/api": "^6.20.3",
+        "@bull-board/express": "^6.20.3",
+        "@menticode/shared": "file:../../packages/shared",
+        "@prisma/adapter-pg": "^7.4.2",
+        "@prisma/client": "^7.4.2",
+        "axios": "^1.13.6",
+        "bullmq": "^5.70.1",
+        "dotenv": "^17.3.1",
+        "express": "^5.2.1",
+        "ioredis": "^5.10.0",
+        "jsonwebtoken": "^9.0.3",
+        "pg": "^8.19.0",
+        "ws": "^8.19.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14",
+        "prisma": "^7.4.2"
+    }
+}
