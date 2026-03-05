@@ -1,4 +1,5 @@
 import * as env from "./config/env.js";
+import cors from "cors";
 import express from "express";
 import { ApiResponse, logger } from "@menticode/shared";
 const app = express();
@@ -12,6 +13,8 @@ import { queueAdminRouter } from "./admin/queue.admin.js";
 import { requireAdmin, requireAuth } from "./middleware/auth.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 
+
+app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
