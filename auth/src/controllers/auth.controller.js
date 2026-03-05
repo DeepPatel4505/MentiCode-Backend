@@ -607,6 +607,7 @@ const githubCallback = asyncHandler(async (req, res) => {
   );
 
   const email = emailResponse.data.find(e => e.primary).email;
+  const githubUserId = id.toString();
 
   let user = await prisma.user.findUnique({
     where: { email }
@@ -617,9 +618,23 @@ const githubCallback = asyncHandler(async (req, res) => {
       data: {
         email,
         username: login,
-        githubId: id.toString(),
+        githubId: githubUserId,
         avatarUrl: avatar_url,
         loginProvider: "github",
+        isEmailVerified: true,
+        githubAccessToken
+      }
+    });
+  } else {
+    if (user.githubId && user.githubId !== githubUserId) {
+      throw new ApiError(409, "GitHub account does not match existing user");
+    }
+
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        githubAccessToken,
+        githubId: user.githubId ?? githubUserId,
         isEmailVerified: true
       }
     });
