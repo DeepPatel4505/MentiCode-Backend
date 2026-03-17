@@ -14,7 +14,10 @@ import { requireAdmin, requireAuth } from "./middleware/auth.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
 
 
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:5173', // Adjust this to your frontend URL
+    credentials: true,
+}));
 app.use(express.json());
 
 app.use((req, res, next) => {
