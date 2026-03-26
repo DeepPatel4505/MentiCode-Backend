@@ -32,7 +32,7 @@ if (!GEMINI_API_KEY) {
 }
 
 const LLM_MODEL = process.env.LLM_MODEL || "deepseek-coder:6.7b-instruct";
-const LLM_TIMEOUT_MS = parseNumber(process.env.LLM_TIMEOUT_MS, 20_000);
+const LLM_TIMEOUT_MS = parseNumber(process.env.LLM_TIMEOUT_MS, 30_000);
 
 const config = {
     env: NODE_ENV,

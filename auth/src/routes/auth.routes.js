@@ -32,6 +32,9 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 //unsecure routes
+router.get("/test", (req, res) => {
+  res.json({ message: "Auth route is working!" });
+});
 router.route("/register").post(userRegistrationValidator(),validate,registerUser);
 router.route("/login").post(userLoginValidator(),validate,loginUser);
 router.route("/verify-email/:verificationToken").get(verifyEmail);

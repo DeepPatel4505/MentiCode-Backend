@@ -5,6 +5,7 @@ const MAX_CODE_LENGTH = 50_000; // safety limit to avoid extremely large payload
 export const codeReviewController = async (req, res, next) => {
     try {
         const { language, code } = req.body || {};
+        console.log("Received code review request:", { language, codeLength: code ? code.length : 0 });
 
         if (!language || !code) {
             return res.status(400).json({

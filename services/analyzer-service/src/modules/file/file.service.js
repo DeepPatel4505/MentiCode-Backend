@@ -12,14 +12,13 @@ export async function listFilesForOwnedPlayground(userId, playgroundId) {
 			id: playgroundId,
 			userId,
 		},
-		select: { id: true },
+		select: { id: true , name: true, sourceType: true, createdAt: true},
 	});
 
 	if (!ownedPlayground) {
 		throw toNotFound();
 	}
-
-	return prisma.file.findMany({
+	const files = await prisma.file.findMany({
 		where: {
 			playgroundId,
 		},
@@ -28,6 +27,9 @@ export async function listFilesForOwnedPlayground(userId, playgroundId) {
 			id: true,
 			name: true,
 			language: true,
+			storagePath: true,
 		},
 	});
+
+	return {playground : ownedPlayground, files};
 }

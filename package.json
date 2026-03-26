@@ -18,10 +18,14 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:all": "node scripts/run-all.mjs dev",
+    "start:all": "node scripts/run-all.mjs start"
   },
   "private": true,
   "workspaces": [
-    "packages/shared"
+    "packages/*",
+    "services/*",
+    "auth"
   ]
 }

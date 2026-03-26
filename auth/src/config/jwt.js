@@ -5,7 +5,8 @@ export const generateAccessToken = (user) => {
   return jwt.sign(
     { 
         id: user.id, 
-        email: user.email 
+        email: user.email,
+        jti: crypto.randomBytes(16).toString("hex")
     },
     process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN }
@@ -16,7 +17,8 @@ export const generateRefreshToken = (user) => {
   return jwt.sign(
     { 
         id: user.id,
-        email: user.email 
+        email: user.email,
+        jti: crypto.randomBytes(16).toString("hex")
     },
     process.env.REFRESH_TOKEN_SECRET,
     { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }

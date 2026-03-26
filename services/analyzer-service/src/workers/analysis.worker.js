@@ -49,6 +49,7 @@ const worker = new Worker(
 			}
 
 			const code = readFileContentFromStoragePath(file);
+			console.log("Code to analyze:", code);
 			const engineStartMs = Date.now();
 
 			const response = await axios.post(

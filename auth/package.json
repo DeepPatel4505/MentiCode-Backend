@@ -24,7 +24,6 @@
     "jsonwebtoken": "^9.0.3",
     "mailer": "^0.6.6",
     "mailgen": "^2.0.32",
-    "node": "^18.20.8",
     "nodemailer": "^8.0.1",
     "nodemon": "^3.1.14"
   },

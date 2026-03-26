@@ -4,22 +4,24 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 
 export function requireAuth(req, res, next) {
 	const authHeader = req.headers.authorization;
+	console.log("Auth Header:", authHeader);
 
 	if (!authHeader || !authHeader.startsWith("Bearer ")) {
 		return res.status(401).json({ error: "Unauthorized" });
 	}
 
 	const token = authHeader.slice(7).trim();
+	console.log("Extracted Token:", token);
 
 	try {
 		const payload = jwt.verify(token, JWT_SECRET);
-
-		if (!payload?.sub) {
+		console.log("Decoded JWT Payload:", payload);
+		if (!payload?.id) {
 			return res.status(401).json({ error: "Unauthorized" });
 		}
 
 		req.user = {
-			id: payload.sub,
+			id: payload.id,
 			role: payload.role,
 			plan: payload.plan,
 		};

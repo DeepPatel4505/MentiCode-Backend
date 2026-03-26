@@ -1,4 +1,4 @@
-import { createPlaygroundForUser, listPlaygroundsForUser } from "./playground.service.js";
+import { createPlaygroundForUser, listPlaygroundsForUser, deletePlaygroundForUser } from "./playground.service.js";
 
 export async function createPlayground(req, res, next) {
 	try {
@@ -17,3 +17,17 @@ export async function listPlaygrounds(req, res, next) {
 		return next(error);
 	}
 }
+
+export async function deletePlayground(req, res, next) {
+	try {
+		const playgroundId = req.params.playgroundId;
+		if (!playgroundId) {
+			return res.status(400).json({ message: "playgroundId is required" });
+		}
+		const result = await deletePlaygroundForUser(req.user.id, playgroundId);
+		return res.status(200).json(result);
+	} catch (error) {
+		return next(error);
+	}
+}
+

@@ -222,13 +222,17 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     ),
   );
 });
+
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+    req.cookies.refreshToken;
 
+  console.log("Incoming refresh token:", incomingRefreshToken);
   if (!incomingRefreshToken) {
-    throw new ApiError(401, "Refresh token is missing");
+    console.log("Refresh token is missing in the request");
+    return res.status(200).json(new ApiResponse(200, null, "Refresh token is missing"));
   }
+  
 
   const tokenHash = crypto
     .createHash("sha256")
@@ -254,16 +258,17 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
   const user = storedToken.user;
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user.id,
-  );
-
   await prisma.refreshToken.update({
     where: { id: storedToken.id },
     data: {
       revokedAt: new Date(),
     },
   });
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user.id,
+  );
+
 
   const options = {
     httpOnly: true,
@@ -319,6 +324,8 @@ const verifyEmail = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+
 const resendVerificationEmail = asyncHandler(async (req, res) => {
   const user = await prisma.user.findFirst({ where: { id: req.user?.id } });
   if (!user) {
