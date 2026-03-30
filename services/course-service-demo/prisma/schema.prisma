@@ -1,0 +1,380 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// ROADMAP
+// ──────────────────────────────────────────────
+
+model Roadmap {
+  id          String        @id @default(uuid())
+  authorId    String
+  title       String
+  slug        String        @unique
+  description String        @default("")
+  thumbnail   String        @default("")
+  tags        String[]      @default([])
+  status      RoadmapStatus @default(draft)
+  tracks      Track[]
+  enrollments RoadmapEnrollment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([authorId], map: "idx_roadmap_author")
+  @@index([status],   map: "idx_roadmap_status")
+}
+
+model Track {
+  id           String   @id @default(uuid())
+  roadmapId    String
+  roadmap      Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  title        String
+  description  String   @default("")
+  order        Int
+  freeUpToNode Int?
+  nodes        TrackNode[]
+  enrollments  RoadmapEnrollment[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([roadmapId, order], map: "uq_track_order")
+  @@index([roadmapId],         map: "idx_track_roadmap")
+}
+
+model TrackNode {
+  id              String   @id @default(uuid())
+  trackId         String
+  track           Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  courseId        String
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  order           Int
+  isSkippable     Boolean  @default(true)
+  prerequisiteIds String[] @default([])
+  nodeProgress    TrackNodeProgress[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([trackId, order],    map: "uq_node_order")
+  @@unique([trackId, courseId], map: "uq_node_course")
+  @@index([trackId],            map: "idx_node_track")
+  @@index([courseId],           map: "idx_node_course")
+}
+
+model RoadmapEnrollment {
+  id           String                  @id @default(uuid())
+  userId       String
+  roadmapId    String
+  roadmap      Roadmap                 @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  trackId      String
+  track        Track                   @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  status       RoadmapEnrollmentStatus @default(active)
+  progress     Float                   @default(0)
+  completedAt  DateTime?
+  nodeProgress TrackNodeProgress[]
+  enrolledAt   DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([userId, roadmapId], map: "uq_roadmap_enrollment")
+  @@index([userId],             map: "idx_re_user")
+  @@index([roadmapId],          map: "idx_re_roadmap")
+}
+
+model TrackNodeProgress {
+  id                  String            @id @default(uuid())
+  roadmapEnrollmentId String
+  roadmapEnrollment   RoadmapEnrollment @relation(fields: [roadmapEnrollmentId], references: [id], onDelete: Cascade)
+  trackNodeId         String
+  trackNode           TrackNode         @relation(fields: [trackNodeId], references: [id], onDelete: Cascade)
+  status              TrackNodeStatus   @default(locked)
+  courseProgress      Float             @default(0)
+  skippedAt           DateTime?
+  completedAt         DateTime?
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([roadmapEnrollmentId, trackNodeId], map: "uq_node_progress")
+  @@index([roadmapEnrollmentId],               map: "idx_np_enrollment")
+}
+
+// ──────────────────────────────────────────────
+// COURSE
+// ──────────────────────────────────────────────
+
+model Course {
+  id              String       @id @default(uuid())
+  authorId        String
+  title           String
+  slug            String       @unique
+  description     String       @default("")
+  thumbnail       String       @default("")
+  tags            String[]     @default([])
+  language        String       @default("en")
+  status          CourseStatus @default(draft)
+  difficulty      Difficulty   @default(beginner)
+  totalXp         Int          @default(0)
+  freeUpToLesson  Int?
+  freeUpToLevel   Int?
+  placementQuizId String?      @unique
+  sections        Section[]
+  enrollments     Enrollment[]
+  reviews         Review[]
+  sectionSkips    PlacementSkipRule[]
+  trackNodes      TrackNode[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([authorId], map: "idx_course_author")
+  @@index([status],   map: "idx_course_status")
+}
+
+model PlacementSkipRule {
+  id        String  @id @default(uuid())
+  courseId  String
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  minScore  Int     @default(80)
+
+  @@unique([courseId, sectionId], map: "uq_skip_rule")
+}
+
+// ──────────────────────────────────────────────
+// SECTION
+// ──────────────────────────────────────────────
+
+model Section {
+  id          String      @id @default(uuid())
+  courseId    String
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String      @default("")
+  order       Int
+  type        SectionType @default(video_section)
+  isSkippable Boolean     @default(true)
+  lessons     Lesson[]
+  levels      GameLevel[]
+  skipRules   PlacementSkipRule[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([courseId, order], map: "uq_section_order")
+  @@index([courseId],         map: "idx_section_course")
+}
+
+// ──────────────────────────────────────────────
+// LESSON
+// ──────────────────────────────────────────────
+
+model Lesson {
+  id            String     @id @default(uuid())
+  sectionId     String
+  section       Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title         String
+  order         Int
+  type          LessonType @default(video)
+  videoUrl      String     @default("")
+  duration      Int        @default(0)
+  body          String     @default("")
+  attachmentUrl String     @default("")
+  isPreview     Boolean    @default(false)
+  progress      LessonProgress[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([sectionId, order], map: "uq_lesson_order")
+  @@index([sectionId],         map: "idx_lesson_section")
+}
+
+// ──────────────────────────────────────────────
+// GAME LEVEL
+// ──────────────────────────────────────────────
+
+model GameLevel {
+  id              String        @id @default(uuid())
+  sectionId       String
+  section         Section       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title           String
+  order           Int
+  type            GameLevelType @default(quiz)
+  xpReward        Int           @default(10)
+  passingScore    Int           @default(70)
+  cooldownMinutes Int           @default(0)
+  config          Json          @default("{}")
+  isPublished     Boolean       @default(false)
+  attempts        LevelAttempt[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([sectionId, order], map: "uq_level_order")
+  @@index([sectionId],         map: "idx_level_section")
+}
+
+// ──────────────────────────────────────────────
+// ENROLLMENT
+// ──────────────────────────────────────────────
+
+model Enrollment {
+  id              String           @id @default(uuid())
+  userId          String
+  courseId        String
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status          EnrollmentStatus @default(active)
+  xpEarned        Int              @default(0)
+  placementScore  Int?
+  completedAt     DateTime?
+  courseProgress  CourseProgress?
+  lessonProgress  LessonProgress[]
+  levelAttempts   LevelAttempt[]
+  skippedSections SkippedSection[]
+  enrolledAt      DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([userId, courseId], map: "uq_enrollment")
+  @@index([userId],            map: "idx_enrollment_user")
+  @@index([courseId],          map: "idx_enrollment_course")
+}
+
+model CourseProgress {
+  id               String     @id @default(uuid())
+  enrollmentId     String     @unique
+  enrollment       Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  currentSectionId String?
+  currentLessonId  String?
+  currentLevelId   String?
+  overallProgress  Float      @default(0)
+  updatedAt        DateTime   @updatedAt
+}
+
+model SkippedSection {
+  id           String     @id @default(uuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sectionId    String
+  reason       SkipReason @default(manual)
+  skippedAt    DateTime   @default(now())
+
+  @@unique([enrollmentId, sectionId], map: "uq_skipped_section")
+}
+
+model LessonProgress {
+  id           String     @id @default(uuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  watchedUpTo  Int        @default(0)
+  isCompleted  Boolean    @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([enrollmentId, lessonId], map: "uq_lesson_progress")
+  @@index([enrollmentId],            map: "idx_lp_enrollment")
+}
+
+model LevelAttempt {
+  id               String     @id @default(uuid())
+  enrollmentId     String
+  enrollment       Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  levelId          String
+  level            GameLevel  @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  score            Int        @default(0)
+  isPassed         Boolean    @default(false)
+  xpAwarded        Int        @default(0)
+  answers          Json       @default("[]")
+  startedAt        DateTime   @default(now())
+  finishedAt       DateTime?
+  retryAvailableAt DateTime?
+
+  @@index([enrollmentId], map: "idx_attempt_enrollment")
+  @@index([levelId],      map: "idx_attempt_level")
+}
+
+// ──────────────────────────────────────────────
+// USER STATS (persisted, updated on every activity)
+// ──────────────────────────────────────────────
+
+model UserStats {
+  userId          String    @id
+  xpTotal         Int       @default(0)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastActivityAt  DateTime?
+  updatedAt       DateTime  @updatedAt
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId], map: "uq_review")
+  @@index([courseId],          map: "idx_review_course")
+}
+
+// ──────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────
+
+enum RoadmapStatus{ 
+  draft 
+  published 
+  archived 
+}
+enum RoadmapEnrollmentStatus { 
+  active
+  paused 
+  completed 
+  dropped 
+}
+enum TrackNodeStatus{ 
+  locked 
+  unlocked 
+  in_progress 
+  skipped 
+  completed 
+}
+enum CourseStatus { 
+  draft 
+  published 
+  archived
+}
+enum Difficulty { 
+  beginner 
+  intermediate 
+  advanced 
+}
+enum SectionType { 
+  video_section 
+  challenge_section 
+}
+enum LessonType { 
+  video 
+  article 
+  attachment 
+}
+enum GameLevelType { 
+  quiz 
+  drag_drop 
+  code_challenge 
+  fill_blank 
+}
+enum EnrollmentStatus { 
+  active 
+  paused 
+  completed 
+  dropped 
+}
+enum SkipReason { 
+  manual 
+  placement 
+}
