@@ -1,90 +1,140 @@
-# Backend Summary
+# MentiCode Backend
 
-This backend is organized as a microservices workspace with shared platform components and service-specific implementations.
+Backend workspace for MentiCode, organized as a multi-service monorepo with shared packages, domain-focused services, and multiple intelligence engine iterations.
 
-## High-Level Structure
+## Overview
+
+This workspace contains:
+
+- Service-oriented backend applications (gateway, auth, analyzer, course, intelligence engines).
+- Shared packages reused across services.
+- Infrastructure and architecture documentation.
+- Utility scripts for running multiple services together in development.
+
+## Repository Layout
 
 ```text
 backend/
-├── docs/
-│   └── EngineAnalysis/
-│       ├── EngineAnalysis.md
-│       ├── breif.md
-│       └── imgs/
-│           ├── charts/
-│           ├── v1/
-│           ├── v2/
-│           └── v3/
-├── infrastructure/
+├── auth/                    # Standalone auth workspace package
+├── docs/                    # Architecture notes and analysis artifacts
+├── infrastructure/          # Infra and deployment-related assets
+├── packages/
+│   └── shared/              # Reusable cross-service code
+├── scripts/
+│   └── run-all.mjs          # Multi-service runner
 ├── services/
 │   ├── analyzer-service/
-│   │   ├── app/
-│   │   └── tests/
-│   ├── api-gateway/
-│   │   └── app/
 │   ├── auth-service/
-│   │   ├── app/
-│   │   └── tests/
+│   ├── course-service-demo/
+│   ├── gateway/
 │   ├── github-service/
-│   │   ├── app/
-│   │   └── tests/
 │   ├── intelligence-engine/
-│   │   ├── app/
-│   │   │   ├── core/
-│   │   │   ├── domain/
-│   │   │   ├── services/
-│   │   │   └── utils/
-│   │   ├── tests/
-│   │   │   ├── integration/
-│   │   │   ├── service/
-│   │   │   └── unit/
-│   │   ├── requirements.txt
-│   │   ├── requirements-dev.txt
-│   │   ├── pytest.ini
-│   │   └── implementation and coverage reports
 │   ├── intelligence-enginev2/
-│   │   ├── src/
-│   │   │   ├── core/
-│   │   │   ├── middleware/
-│   │   │   ├── prompts/
-│   │   │   └── utils/
-│   │   ├── package.json
-│   │   └── README.md
 │   ├── intelligence-enginev3/
-│   │   ├── src/
-│   │   ├── test/
-│   │   ├── scripts/
-│   │   ├── package.json
-│   │   └── README.md
+│   ├── intelligence-enginev4/
 │   ├── learning-service/
-│   │   ├── app/
-│   │   └── tests/
 │   └── notification-service/
-│       ├── app/
-│       └── tests/
-└── shared/
+└── package.json             # Workspace root configuration
 ```
 
-## Directory Responsibilities
+## Workspace Model
 
-- **docs/**: Architecture notes, analysis artifacts, and diagrams for backend evolution.
-- **infrastructure/**: Environment and deployment-related backend infrastructure assets.
-- **services/**: Business capabilities split by service boundary (gateway, auth, analyzer, GitHub, intelligence, learning, notifications).
-- **shared/**: Reusable backend code, contracts, or utilities intended for cross-service usage.
+The root uses npm workspaces:
 
-## Service Layer Pattern
+- `packages/*`
+- `services/*`
+- `auth`
 
-Most services follow this structure:
+This allows installing dependencies and running scripts per workspace from the backend root.
 
-- **app/**: Runtime application code (API handlers, business logic, integrations).
-- **tests/**: Unit/integration tests scoped to the service.
+## Prerequisites
 
-## Intelligence Engine Versions
+- Node.js 18+
+- npm 9+
 
-There are multiple intelligence-engine implementations in parallel:
+Some services may have additional runtime requirements (for example, databases, Python runtime, or service-specific environment variables). Check the README inside each service directory for details.
 
-- **intelligence-engine/**: Python-based implementation with layered `core/domain/services/utils` modules and pytest coverage artifacts.
-- **intelligence-enginev2/**: Node.js implementation with modularized source folders.
-- **intelligence-enginev3/**: Newer Node.js iteration with scripts and dedicated tests.
+## Getting Started
 
-This suggests an active migration/iteration path where multiple versions coexist for comparison, phased rollout, or experimentation.
+From the backend root:
+
+```bash
+npm install
+```
+
+### Run Core Services in Development
+
+```bash
+npm run dev:all
+```
+
+This runs the default service set configured in `scripts/run-all.mjs`:
+
+- `gateway`
+- `auth`
+- `analyzer`
+- `course-service`
+- `intelligence-enginev3`
+
+### Run Core Services in Start Mode
+
+```bash
+npm run start:all
+```
+
+### Run a Single Service Group
+
+```bash
+npm run dev:course
+```
+
+### Run Selected Services
+
+PowerShell:
+
+```powershell
+$env:SERVICES = "gateway,auth"
+node scripts/run-all.mjs dev
+```
+
+Bash:
+
+```bash
+SERVICES=gateway,auth node scripts/run-all.mjs dev
+```
+
+## Useful Scripts
+
+- `npm run dev:all`: Run default backend services in development mode.
+- `npm run start:all`: Run default backend services in start mode.
+- `npm run dev:course`: Run development flow focused on the course service.
+
+## Environment Notes
+
+- `SERVICES` (or `SERVICE`): Comma-separated service IDs for targeted runs.
+- `CMD`: Script name override for `run-all.mjs`.
+- `MENTICODE_SERVICE_COURSE_PORT` / `COURSE_PORT`: Override course service port (default `8001`).
+- `MENTICODE_SERVICE_INTELLIGENCE_ENGINEV3_PORT` / `IEV3_PORT`: Override intelligence-enginev3 port (default `4003`).
+- `KILL_AFTER_MS`: Grace period before force-killing child processes on shutdown (default `2500`).
+
+## Development Guidance
+
+- Keep service boundaries explicit and avoid cross-service coupling.
+- Place reusable logic in `packages/shared` rather than duplicating it in services.
+- Keep API contracts and environment variables documented per service.
+- Add or update tests in the corresponding service when behavior changes.
+
+## Documentation
+
+Architecture and analysis artifacts are available under `docs/`, including engine evolution notes in `docs/EngineAnalysis/`.
+
+## Contribution
+
+1. Create a feature branch.
+2. Implement changes in the relevant service or shared package.
+3. Run service-level tests and checks.
+4. Open a pull request with clear scope, test evidence, and migration notes (if applicable).
+
+## License
+
+`ISC`

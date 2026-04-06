@@ -1,8 +1,7 @@
 const SEVERITY_RANK = {
     critical: 4,
-    high: 3,
-    medium: 2,
-    low: 1,
+    major: 2,
+    minor: 1,
 };
 
 const RISK_RANK = {
@@ -67,7 +66,7 @@ function calculateSimilarity(str1, str2) {
 
 function findDuplicateGroup(finding, existingFindings, lineRange = 5) {
     for (const existing of existingFindings) {
-        const lineDiff = Math.abs(finding.line - existing.line);
+        const lineDiff = Math.abs(finding.line_range[0] - existing.line_range[0]);
 
         if (lineDiff > lineRange) {
             continue;
@@ -88,16 +87,33 @@ function findDuplicateGroup(finding, existingFindings, lineRange = 5) {
 }
 
 function normalizeFinding(finding) {
+    const lineRange = Array.isArray(finding.line_range) && finding.line_range.length >= 2
+        ? [
+            Number.isInteger(finding.line_range[0]) && finding.line_range[0] > 0
+                ? finding.line_range[0]
+                : 1,
+            Number.isInteger(finding.line_range[1]) && finding.line_range[1] > 0
+                ? finding.line_range[1]
+                : 1,
+        ]
+        : [1, 1];
+
+    if (lineRange[0] > lineRange[1]) {
+        lineRange.reverse();
+    }
+
     return {
-        line: Number.isInteger(finding.line) && finding.line > 0 ? finding.line : 1,
+        line_range: lineRange,
         category: String(finding.category || "general").trim() || "general",
         severity: SEVERITY_RANK[finding.severity]
             ? finding.severity
-            : "low",
+            : "minor",
+        abstract_issue: String(finding.abstract_issue || finding.issue || "").trim(),
         issue: String(finding.issue || "").trim(),
         why_it_matters: String(finding.why_it_matters || "").trim(),
         hint: String(finding.hint || "").trim(),
         guided_fix: String(finding.guided_fix || "").trim(),
+        full_fix: finding.full_fix ?? null,
     };
 }
 
@@ -115,6 +131,7 @@ export function mergeFindings(chunkResponses, { maxFindings = MAX_FINDINGS } = {
     const findings = [];
     let riskScore = 1;
     let qualitySum = 0;
+    let finalSolution = null;
 
     for (const chunkResponse of chunkResponses) {
         if (!chunkResponse || typeof chunkResponse !== "object") {
@@ -128,6 +145,14 @@ export function mergeFindings(chunkResponses, { maxFindings = MAX_FINDINGS } = {
         const chunkFindings = Array.isArray(chunkResponse.findings)
             ? chunkResponse.findings
             : [];
+
+        if (
+            finalSolution === null
+            && typeof chunkResponse.final_solution === "string"
+            && chunkResponse.final_solution.trim().length > 0
+        ) {
+            finalSolution = chunkResponse.final_solution;
+        }
 
         for (const rawFinding of chunkFindings) {
             const normalized = normalizeFinding(rawFinding);
@@ -163,7 +188,7 @@ export function mergeFindings(chunkResponses, { maxFindings = MAX_FINDINGS } = {
             return severityDiff;
         }
 
-        return a.line - b.line;
+        return a.line_range[0] - b.line_range[0];
     });
 
     const cappedFindings = sortedFindings.slice(0, maxFindings);
@@ -174,5 +199,6 @@ export function mergeFindings(chunkResponses, { maxFindings = MAX_FINDINGS } = {
             overall_quality: overallQuality,
         },
         findings: cappedFindings,
+        final_solution: finalSolution,
     };
 }

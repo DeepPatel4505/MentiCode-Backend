@@ -17,6 +17,12 @@ const STUDENTS = [
   "seed-student-005",
 ];
 
+const PRIMARY_USER_ID = process.env.SEED_PRIMARY_USER_ID?.trim() || null;
+
+const ALL_LEARNERS = PRIMARY_USER_ID
+  ? [...new Set([PRIMARY_USER_ID, ...STUDENTS])]
+  : STUDENTS;
+
 const TEST_VIDEO_URL =
   process.env.SEED_VIDEO_URL ??
   "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
@@ -581,8 +587,8 @@ const seedRoadmaps = async (seededCourseMetaBySlug) => {
 const seedLearnerData = async (seededCourseMetaBySlug, roadmapMeta) => {
   const courseMetaList = Object.values(seededCourseMetaBySlug).slice(0, 8);
 
-  for (let studentIndex = 0; studentIndex < STUDENTS.length; studentIndex += 1) {
-    const studentId = STUDENTS[studentIndex];
+  for (let studentIndex = 0; studentIndex < ALL_LEARNERS.length; studentIndex += 1) {
+    const studentId = ALL_LEARNERS[studentIndex];
 
     for (let courseIndex = 0; courseIndex < courseMetaList.length; courseIndex += 1) {
       const courseMeta = courseMetaList[courseIndex];
@@ -707,8 +713,8 @@ const seedLearnerData = async (seededCourseMetaBySlug, roadmapMeta) => {
       orderBy: { order: "asc" },
     });
 
-    for (let i = 0; i < Math.min(3, STUDENTS.length); i += 1) {
-      const studentId = STUDENTS[i];
+    for (let i = 0; i < Math.min(3, ALL_LEARNERS.length); i += 1) {
+      const studentId = ALL_LEARNERS[i];
 
       const roadmapEnrollment = await prisma.roadmapEnrollment.upsert({
         where: {
@@ -774,6 +780,35 @@ const seedLearnerData = async (seededCourseMetaBySlug, roadmapMeta) => {
       }
     }
   }
+
+  for (let learnerIndex = 0; learnerIndex < ALL_LEARNERS.length; learnerIndex += 1) {
+    const learnerId = ALL_LEARNERS[learnerIndex];
+    const learnerEnrollments = await prisma.enrollment.findMany({
+      where: { userId: learnerId },
+      select: { xpEarned: true },
+    });
+
+    const xpTotal = learnerEnrollments.reduce((acc, enrollment) => acc + (enrollment.xpEarned ?? 0), 0);
+    const today = new Date();
+    const lastActivityAt = new Date(today.getTime() - learnerIndex * 86400000);
+
+    await prisma.userStats.upsert({
+      where: { userId: learnerId },
+      update: {
+        xpTotal,
+        currentStreak: Math.max(1, 5 - learnerIndex),
+        longestStreak: Math.max(3, 8 - learnerIndex),
+        lastActivityAt,
+      },
+      create: {
+        userId: learnerId,
+        xpTotal,
+        currentStreak: Math.max(1, 5 - learnerIndex),
+        longestStreak: Math.max(3, 8 - learnerIndex),
+        lastActivityAt,
+      },
+    });
+  }
 };
 
 const printSummary = async () => {
@@ -813,12 +848,16 @@ const printSummary = async () => {
 
 const seed = async () => {
   console.info("Seeding course-service database with large test data...");
+  if (PRIMARY_USER_ID) {
+    console.info(`Primary learner id detected: ${PRIMARY_USER_ID}`);
+  }
 
   const seededCourseMetaBySlug = await seedCourseCatalog();
   const roadmapMeta = await seedRoadmaps(seededCourseMetaBySlug);
   await seedLearnerData(seededCourseMetaBySlug, roadmapMeta);
 
   await printSummary();
+  console.info(`  learners seeded: ${ALL_LEARNERS.length}`);
   console.info("Seed complete.");
 };
 

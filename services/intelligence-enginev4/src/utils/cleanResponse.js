@@ -1,5 +1,5 @@
 const ALLOWED_RISK_LEVELS = new Set(["low", "medium", "high"]);
-const ALLOWED_SEVERITIES = new Set(["low", "medium", "high", "critical"]);
+const ALLOWED_SEVERITIES = new Set(["minor", "major", "critical"]);
 
 function parseIfNeeded(raw) {
     if (typeof raw === "string") {
@@ -28,9 +28,33 @@ function normalizeLine(value) {
     return Number.isInteger(num) && num > 0 ? num : 1;
 }
 
+function normalizeLineRange(lineRange, fallbackLine) {
+    if (Array.isArray(lineRange) && lineRange.length >= 2) {
+        const start = normalizeLine(lineRange[0]);
+        const end = normalizeLine(lineRange[1]);
+        return start <= end ? [start, end] : [end, start];
+    }
+
+    const line = normalizeLine(fallbackLine);
+    return [line, line];
+}
+
 function normalizeSeverity(value) {
     const normalized = String(value || "").toLowerCase();
-    return ALLOWED_SEVERITIES.has(normalized) ? normalized : "low";
+
+    if (ALLOWED_SEVERITIES.has(normalized)) {
+        return normalized;
+    }
+
+    if (normalized === "high" || normalized === "medium") {
+        return "major";
+    }
+
+    if (normalized === "low") {
+        return "minor";
+    }
+
+    return "minor";
 }
 
 function normalizeRiskLevel(value, findings) {
@@ -40,11 +64,11 @@ function normalizeRiskLevel(value, findings) {
         return normalized;
     }
 
-    if (findings.some((f) => f.severity === "critical" || f.severity === "high")) {
+    if (findings.some((f) => f.severity === "critical")) {
         return "high";
     }
 
-    if (findings.some((f) => f.severity === "medium")) {
+    if (findings.some((f) => f.severity === "major")) {
         return "medium";
     }
 
@@ -60,17 +84,22 @@ function normalizeFindings(input) {
         .map((item) => {
             const finding = item && typeof item === "object" ? item : {};
             const category = String(finding.category || "general").trim() || "general";
+            const lineRange = normalizeLineRange(finding.line_range, finding.line);
 
             return {
-                line: normalizeLine(finding.line),
                 category,
                 severity: normalizeSeverity(finding.severity),
+                line_range: lineRange,
+                abstract_issue: String(
+                    finding.abstract_issue || finding.issue || "No issue details provided.",
+                ),
                 issue: String(finding.issue || "No issue details provided."),
                 why_it_matters: String(
                     finding.why_it_matters || "Potential impact was not provided.",
                 ),
                 hint: String(finding.hint || "No hint provided."),
                 guided_fix: String(finding.guided_fix || "No guided fix provided."),
+                full_fix: finding.full_fix ?? null,
             };
         })
         .slice(0, 100);
@@ -88,5 +117,6 @@ export function cleanResponse(raw) {
     return {
         summary,
         findings,
+        final_solution: parsed.final_solution ?? null,
     };
 }

@@ -1,45 +1,13 @@
 import { buildReviewPrompt } from "../llm/buildReviewPrompt.js";
 import { llmRouter } from "../llm/router.js";
 import { cleanResponse } from "../utils/cleanResponse.js";
-import env from "../config/env.js";
-import { createCacheService, createInMemoryLRUStore } from "../cache/cache.service.js";
 import { addLineNumbers, chunkCode, normalizeCode } from "../utils/codeProcessor.js";
 import { mergeFindings } from "../utils/mergeFindings.js";
 import logger from "../utils/logger.js";
 
-const analysisCache = createCacheService({
-    store: createInMemoryLRUStore({
-        maxEntries: env.cacheMaxEntries,
-        defaultTtlMs: env.cacheTtlMs,
-    }),
-    defaultTtlMs: env.cacheTtlMs,
-});
-
 export async function runCodeReview({ language, code, mode, requestId }) {
     const processedCode = normalizeCode(code);
-    const cacheLookup = analysisCache.getByAnalysisInput({
-        language,
-        code: processedCode,
-    });
-
-    if (cacheLookup.value) {
-        logger.info("code_review_cache_hit", {
-            requestId,
-            language,
-            codeLength: code.length,
-        });
-
-        return {
-            ...cacheLookup.value,
-            meta: {
-                cached: true,
-                provider: cacheLookup.value.meta?.provider || "unknown",
-                latency_ms: 0,
-            },
-        };
-    }
-
-    logger.info("code_review_cache_miss", {
+    logger.info("code_review_llm_start", {
         requestId,
         language,
         codeLength: code.length,
@@ -81,8 +49,12 @@ export async function runCodeReview({ language, code, mode, requestId }) {
             summary: cleaned.summary,
             findings: cleaned.findings.map((finding) => ({
                 ...finding,
-                line: finding.line + lineOffset,
+                line_range: [
+                    finding.line_range[0] + lineOffset,
+                    finding.line_range[1] + lineOffset,
+                ],
             })),
+            final_solution: cleaned.final_solution,
         });
     }
 
@@ -106,12 +78,6 @@ export async function runCodeReview({ language, code, mode, requestId }) {
             latency_ms: totalLatencyMs,
         },
     };
-
-    analysisCache.setByAnalysisInput(
-        { language, code: processedCode },
-        response,
-        env.cacheTtlMs,
-    );
 
     return response;
 }

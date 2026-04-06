@@ -3,7 +3,7 @@ import app from "./app.js";
 import { prisma } from "./config/prisma.js";
 import { redis } from "./config/redis.js";
 
-const PORT = parseInt(process.env.PORT ?? "3002", 10);
+const PORT = parseInt(process.env.PORT ?? "8001", 10);
 
 const start = async () => {
   try {

@@ -26,6 +26,56 @@ import { googleClient, githubConfig } from "../config/oauth.js";
 
 import { prisma } from "../config/prisma.js";
 
+const resolveOAuthCallbackUrl = (req, provider) => {
+  const providerKey = String(provider || "").toLowerCase();
+  const configuredUrl =
+    providerKey === "google"
+      ? process.env.GOOGLE_CALLBACK_URL
+      : process.env.GITHUB_CALLBACK_URL;
+
+  // In development, prefer the incoming request host so callback matches
+  // the actual running port/proxy target.
+  if (process.env.NODE_ENV === "production" && configuredUrl) {
+    return configuredUrl;
+  }
+
+  const forwardedProtoHeader = req.headers["x-forwarded-proto"];
+  const forwardedProto = Array.isArray(forwardedProtoHeader)
+    ? forwardedProtoHeader[0]
+    : String(forwardedProtoHeader || "").split(",")[0];
+  const protocol = forwardedProto || req.protocol || "http";
+  const host = req.headers["x-forwarded-host"] || req.get("host");
+
+  if (host) {
+    return `${protocol}://${host}/api/v1/auth/${providerKey}/callback`;
+  }
+
+  return configuredUrl;
+};
+
+const resolveFrontendRedirectUrl = (req) => {
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL;
+  }
+
+  if (process.env.CORS_ORIGIN) {
+    return String(process.env.CORS_ORIGIN).split(",")[0].trim();
+  }
+
+  const host = req.headers["x-forwarded-host"] || req.get("host");
+  const forwardedProtoHeader = req.headers["x-forwarded-proto"];
+  const forwardedProto = Array.isArray(forwardedProtoHeader)
+    ? forwardedProtoHeader[0]
+    : String(forwardedProtoHeader || "").split(",")[0];
+  const protocol = forwardedProto || req.protocol || "http";
+
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
+  return "http://localhost:5173";
+};
+
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -504,23 +554,25 @@ const upgradeUser = asyncHandler(async (req, res) => {
 
 
 const googleLogin = (req, res) => {
+  const callbackUrl = resolveOAuthCallbackUrl(req, "google");
 
   const url = googleClient.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: ["openid", "profile", "email"],
-    redirect_uri: process.env.GOOGLE_CALLBACK_URL
+    redirect_uri: callbackUrl
   });
   console.log(url)
   res.redirect(url);
 };
 const googleCallback = asyncHandler(async (req, res) => {
+  const callbackUrl = resolveOAuthCallbackUrl(req, "google");
 
   const { code } = req.query;
   console.log(code);
   console.log(process.env.GOOGLE_CLIENT_ID)
 
-  const { tokens } = await googleClient.getToken({code,redirect_uri:process.env.GOOGLE_CALLBACK_URL});
+  const { tokens } = await googleClient.getToken({code,redirect_uri:callbackUrl});
 
   const ticket = await googleClient.verifyIdToken({
     idToken: tokens.id_token,
@@ -560,17 +612,18 @@ const googleCallback = asyncHandler(async (req, res) => {
   res
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .redirect(process.env.FRONTEND_URL);
+    .redirect(resolveFrontendRedirectUrl(req));
 
 });
 
 const githubLogin = (req, res) => {
+  const callbackUrl = resolveOAuthCallbackUrl(req, "github");
 
   const url =
     `${githubConfig.authorizeUrl}?` +
     `client_id=${process.env.GITHUB_CLIENT_ID}` +
     `&scope=repo user:email` +   // repo access
-    `&redirect_uri=${process.env.GITHUB_CALLBACK_URL}`;
+    `&redirect_uri=${encodeURIComponent(callbackUrl)}`;
 
   res.redirect(url);
 
@@ -603,6 +656,7 @@ const githubCallback = asyncHandler(async (req, res) => {
   );
 
   const { id, login, avatar_url } = userResponse.data;
+  const githubId = id?.toString();
 
   const emailResponse = await axios.get(
     githubConfig.emailUrl,
@@ -613,22 +667,41 @@ const githubCallback = asyncHandler(async (req, res) => {
     }
   );
 
-  const email = emailResponse.data.find(e => e.primary).email;
+  const primaryEmail = emailResponse.data.find(e => e.primary)?.email;
 
-  let user = await prisma.user.findUnique({
-    where: { email }
+  if (!primaryEmail) {
+    throw new ApiError(400, "Unable to resolve GitHub account email");
+  }
+
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { githubId },
+        { email: primaryEmail },
+      ],
+    },
   });
 
   if (!user) {
     user = await prisma.user.create({
       data: {
-        email,
+        email: primaryEmail,
         username: login,
-        githubId: id.toString(),
+        githubId,
         avatarUrl: avatar_url,
         loginProvider: "github",
         isEmailVerified: true
       }
+    });
+  } else {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        githubId,
+        loginProvider: "github",
+        avatarUrl: avatar_url || user.avatarUrl,
+        isEmailVerified: true,
+      },
     });
   }
 
@@ -644,7 +717,7 @@ const githubCallback = asyncHandler(async (req, res) => {
   res
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .redirect(process.env.FRONTEND_URL);
+    .redirect(resolveFrontendRedirectUrl(req));
 
 });
 

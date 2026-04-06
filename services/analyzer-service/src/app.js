@@ -18,7 +18,7 @@ app.use(cors({
     origin: 'http://localhost:5173', // Adjust this to your frontend URL
     credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 
 app.use((req, res, next) => {
     const startedAt = Date.now();

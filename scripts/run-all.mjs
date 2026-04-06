@@ -5,6 +5,16 @@ const defaultServices = [
 	{ id: "auth", workspace: "./auth" },
 	{ id: "analyzer", workspace: "./services/analyzer-service" },
 	{
+		id: "course-service",
+		workspace: "./services/course-service-demo",
+		env: {
+			PORT:
+				process.env.MENTICODE_SERVICE_COURSE_PORT ||
+				process.env.COURSE_PORT ||
+				"8001",
+		},
+	},
+	{
 		id: "intelligence-enginev3",
 		workspace: "./services/intelligence-enginev3",
 		env: {
@@ -16,8 +26,9 @@ const defaultServices = [
 	},
 ];
 
-const serviceArg = process.env.SERVICES || process.env.SERVICE || "";
 const command = (process.env.CMD || process.argv[2] || "dev").trim(); // dev | start | any script name
+const cliServiceArg = (process.argv[3] || "").trim();
+const serviceArg = process.env.SERVICES || process.env.SERVICE || cliServiceArg;
 
 if (command === "--help" || command === "-h") {
 	console.log(`[run-all] usage:
@@ -31,6 +42,9 @@ if (command === "--help" || command === "-h") {
   node scripts/run-all.mjs start
 
 Known service ids: ${defaultServices.map((s) => s.id).join(", ")}
+
+Important:
+  The course module in frontend depends on 'course-service' (port 8001).
 `);
 	process.exit(0);
 }

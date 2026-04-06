@@ -20,7 +20,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev:all": "node scripts/run-all.mjs dev",
-    "start:all": "node scripts/run-all.mjs start"
+    "start:all": "node scripts/run-all.mjs start",
+    "dev:course": "node scripts/run-all.mjs dev course-service"
   },
   "private": true,
   "workspaces": [
