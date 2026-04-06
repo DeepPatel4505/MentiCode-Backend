@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceType {
+  upload
+  github
+}
+
+enum JobStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Playground {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  name       String     @db.VarChar(150)
+  sourceType SourceType @map("source_type")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  files File[]
+
+  @@index([userId], map: "idx_playgrounds_user_id")
+  @@index([createdAt], map: "idx_playgrounds_created_at")
+  @@map("playgrounds")
+}
+
+model File {
+  id           String   @id @default(uuid()) @db.Uuid
+  playgroundId String   @map("playground_id") @db.Uuid
+  name         String   @db.VarChar(255)
+  language     String   @db.VarChar(50)
+  storagePath  String   @map("storage_path")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  playground   Playground   @relation(fields: [playgroundId], references: [id], onDelete: Cascade)
+  analysisJobs AnalysisJob[]
+
+  @@index([playgroundId], map: "idx_files_playground_id")
+  @@index([language], map: "idx_files_language")
+  @@map("files")
+}
+
+model AnalysisJob {
+  id           String    @id @default(uuid()) @db.Uuid
+  fileId       String    @map("file_id") @db.Uuid
+  status       JobStatus
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  startedAt    DateTime? @map("started_at") @db.Timestamp(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamp(6)
+
+  file   File           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  result AnalysisResult?
+
+  @@index([fileId], map: "idx_jobs_file_id")
+  @@index([status], map: "idx_jobs_status")
+  @@index([createdAt], map: "idx_jobs_created_at")
+  @@index([fileId, createdAt(sort: Desc)], map: "idx_jobs_file_created")
+  @@map("analysis_jobs")
+}
+
+model AnalysisResult {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @unique @map("job_id") @db.Uuid
+  summary   Json
+  findings  Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  job AnalysisJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId], map: "idx_results_job_id")
+  @@map("analysis_results")
+}

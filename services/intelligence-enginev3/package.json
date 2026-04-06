@@ -1,0 +1,27 @@
+{
+  "name": "intelligence-enginev3",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test ./test/cleanResponse.test.js",
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "healthcheck": "node ./scripts/healthcheck.mjs",
+    "test:api": "node ./scripts/test-api.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "description": "",
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}

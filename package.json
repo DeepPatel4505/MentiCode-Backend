@@ -1,0 +1,32 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "This backend is organized as a microservices workspace with shared platform components and service-specific implementations.",
+  "homepage": "https://github.com/DeepPatel4505/MentiCode-Backend#readme",
+  "bugs": {
+    "url": "https://github.com/DeepPatel4505/MentiCode-Backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeepPatel4505/MentiCode-Backend.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:all": "node scripts/run-all.mjs dev",
+    "start:all": "node scripts/run-all.mjs start",
+    "dev:course": "node scripts/run-all.mjs dev course-service"
+  },
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "auth"
+  ]
+}

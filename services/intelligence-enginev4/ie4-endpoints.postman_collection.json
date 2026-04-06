@@ -1,0 +1,155 @@
+{
+  "info": {
+    "_postman_id": "f2ce5b2a-7f1a-44c2-9636-4d3c2f7c1777",
+    "name": "IE4 Endpoints",
+    "description": "Postman collection for Intelligence Engine v4 endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Returns service health and runtime metrics."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "pm.test(\"Has status field\", function () {",
+              "  pm.expect(json).to.have.property(\"status\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Code Review",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function sum(values) {\\n  let total = 0;\\n  for (let i = 0; i < values.length; i++) {\\n    total += values[i];\\n  }\\n  return total;\\n}\\n\\nconst values = [1, 2, 3];\\nconsole.log(sum(values));\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/code_review",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "code_review"
+          ]
+        },
+        "description": "Runs single-file code review."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "pm.test(\"Has summary and findings\", function () {",
+              "  pm.expect(json).to.have.property(\"summary\");",
+              "  pm.expect(json).to.have.property(\"findings\");",
+              "  pm.expect(json.findings).to.be.an(\"array\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Project Summary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"files\": [\n    {\n      \"language\": \"javascript\",\n      \"code\": \"const x = 1; console.log(x);\"\n    },\n    {\n      \"language\": \"python\",\n      \"code\": \"x = 1; print(x)\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/project_summary",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "project_summary"
+          ]
+        },
+        "description": "Runs multi-file project analysis and summary."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const json = pm.response.json();",
+              "pm.test(\"Has project summary fields\", function () {",
+              "  pm.expect(json).to.have.property(\"summary\");",
+              "  pm.expect(json).to.have.property(\"insights\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
