@@ -134,7 +134,3 @@ Architecture and analysis artifacts are available under `docs/`, including engin
 2. Implement changes in the relevant service or shared package.
 3. Run service-level tests and checks.
 4. Open a pull request with clear scope, test evidence, and migration notes (if applicable).
-
-## License
-
-`ISC`
