@@ -2,7 +2,7 @@ import { runCodeReview } from "../services/review.service.js";
 import { recordRequest } from "../utils/metrics.js";
 
 const MAX_CODE_LENGTH = 50_000;
-const ALLOWED_MODES = new Set(["guided", "full"]);
+const ALLOWED_MODES = new Set(["guided", "full", "fast"]);
 
 export async function codeReviewController(req, res, next) {
     try {

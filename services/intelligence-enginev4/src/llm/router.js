@@ -231,60 +231,11 @@ function buildRealProviders() {
         }
     }
 
-    if (providers.length === 0) {
-        console.warn(
-            "[LLMRouter] No providers successfully initialized. Falling back to mock providers for testing."
-        );
-        return [createMockProvider("gemini"), createMockProvider("groq"), createMockProvider("openai"), createMockProvider("ollama")];
+        if (providers.length === 0) {
+        throw new Error("[LLMRouter] No valid LLM providers initialized. Service cannot start.");
     }
 
     return providers;
-}
-
-function createMockProvider(name) {
-    return {
-        name,
-        async generate({ language, code, mode, prompt, signal }) {
-            if (signal?.aborted) {
-                throw new Error("Request aborted");
-            }
-
-            const lineCount = code.split(/\r?\n/).length;
-
-            return {
-                summary: {
-                    risk_level: lineCount > 120 ? "medium" : "low",
-                    overall_quality: lineCount > 120 ? 72 : 84,
-                },
-                findings: [
-                    {
-                        line: 1,
-                        category: "maintainability",
-                        severity: "high",
-                        issue: `Variable shadowing detected: unused variable assignment creates confusing local scope in ${language}.`,
-                        why_it_matters:
-                            "Shadowed or unused variables reduce code readability and may indicate dead code or copy-paste errors.",
-                        hint: "Identify unused variable assignments and either remove them or refactor.",
-                        guided_fix: "Remove the unused assignment or rename the variable to make intent clear.",
-                    },
-                    {
-                        line: Math.max(2, Math.floor(lineCount / 2)),
-                        category: "performance",
-                        severity: "medium",
-                        issue: "Missing type checking or null verification before property access can lead to runtime errors.",
-                        why_it_matters:
-                            "Defensive checks prevent TypeError and null reference exceptions improving reliability.",
-                        hint: "Add guard clause to verify object existence before accessing properties.",
-                        guided_fix: "Use optional chaining (?.) or explicit null checks to safely access properties.",
-                    },
-                ],
-                meta: {
-                    provider: name,
-                    promptSize: prompt.length,
-                },
-            };
-        },
-    };
 }
 
 export function createLLMRouter({

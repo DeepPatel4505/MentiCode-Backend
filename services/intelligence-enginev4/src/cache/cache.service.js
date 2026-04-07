@@ -4,10 +4,11 @@ function normalizeCode(code) {
     return String(code || "").trim().replace(/\s+/g, " ");
 }
 
-export function createAnalysisCacheKey({ language, code }) {
+export function createAnalysisCacheKey({ language, code, mode }) {
     const normalizedLanguage = String(language || "").trim().toLowerCase();
     const normalizedCode = normalizeCode(code);
-    const keyMaterial = `${normalizedLanguage}${normalizedCode}`;
+    const normalizedMode = String(mode || "guided").trim().toLowerCase();
+    const keyMaterial = `${normalizedLanguage}:${normalizedMode}:${normalizedCode}`;
 
     return crypto.createHash("sha256").update(keyMaterial).digest("hex");
 }

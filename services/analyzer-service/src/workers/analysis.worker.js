@@ -8,7 +8,7 @@ import { readFileContentFromStoragePath } from "../utils/storage.js";
 import { closeJobEventsPublisher, publishJobUpdate } from "../websocket/events.js";
 
 const ENGINE_URL = process.env.ENGINE_URL || process.env.ANALYSIS_ENGINE_URL || "http://localhost:5000/code_review";
-const ENGINE_TIMEOUT_MS = Number(process.env.ANALYSIS_ENGINE_TIMEOUT_MS || 30000);
+const ENGINE_TIMEOUT_MS = Number(process.env.ANALYSIS_ENGINE_TIMEOUT_MS || 180000);
 const WORKER_CONCURRENCY = Number(process.env.ANALYSIS_WORKER_CONCURRENCY || 5);
 
 const worker = new Worker(

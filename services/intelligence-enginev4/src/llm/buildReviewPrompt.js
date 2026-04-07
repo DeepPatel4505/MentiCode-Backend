@@ -6,7 +6,7 @@ const LANG_HINTS = {
     go: "Check error handling, goroutine safety, and idiomatic Go practices.",
 };
 
-export function buildReviewPrompt({ language, code, mode, chunk }) {
+export function buildReviewPrompt({ language, code, mode, chunk, astContext }) {
     const normalizedLanguage = String(language || "").trim().toLowerCase();
     const languageHint =
         LANG_HINTS[normalizedLanguage] ||
@@ -15,6 +15,8 @@ export function buildReviewPrompt({ language, code, mode, chunk }) {
     const modeHint =
         mode === "full"
             ? "Provide one corrected full code version in final_solution and do not repeat full code inside findings."
+            : mode === "fast"
+            ? "FAST MODE: Prioritize speed. Focus strictly on critical runtime failures and ignore minor stylings. Keep findings brief and final_solution to null."
             : "Do NOT include full corrected code and set final_solution to null.";
 
     const chunkHint =
@@ -26,6 +28,10 @@ export function buildReviewPrompt({ language, code, mode, chunk }) {
         chunk && Number.isInteger(chunk.index)
             ? "This chunk may overlap adjacent chunks. Do not invent duplicate findings for repeated overlap lines."
             : "";
+            
+    const astHint = astContext && astContext.isAst
+        ? `\nAST CONTEXT:\nThis is a bounded function isolated from the source file. It has a calculated complexity score of ${astContext.complexityScore} (Loops: ${astContext.metrics.loops}, Conditions: ${astContext.metrics.conditions}, Depth: ${astContext.metrics.maxDepth}). \nHALLUCINATION PREVENTION: ONLY report findings that exist within the strict bounds of this snippet. Do not presume missing imports or external declarations are bugs.`
+        : "";
 
     return [
         `You are a strict but beginner-friendly programming mentor reviewing ${language} code.`,
@@ -93,6 +99,7 @@ export function buildReviewPrompt({ language, code, mode, chunk }) {
         "",
         `Context: ${chunkHint}`,
         overlapHint,
+        astHint,
         languageHint,
         modeHint,
         "",

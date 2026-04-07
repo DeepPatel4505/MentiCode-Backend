@@ -1,5 +1,6 @@
 import { buildReviewPrompt } from "../llm/buildReviewPrompt.js";
 import { llmRouter } from "../llm/router.js";
+import { parseAndExtractAST } from "../ast/analyzer.js";
 import { cleanResponse } from "../utils/cleanResponse.js";
 import { addLineNumbers, chunkCode, normalizeCode } from "../utils/codeProcessor.js";
 import { mergeFindings } from "../utils/mergeFindings.js";
@@ -13,23 +14,41 @@ export async function runCodeReview({ language, code, mode, requestId }) {
         codeLength: code.length,
     });
 
-    const chunks = chunkCode(processedCode);
+    const astResult = await parseAndExtractAST(processedCode, language);
+    let blocks = [];
+    let isAst = false;
+    let complexityScore = 0;
+
+    if (astResult && astResult.functions) {
+        isAst = true;
+        complexityScore = astResult.complexityScore;
+        blocks = astResult.functions.map((func, index) => ({
+            index,
+            startLine: func.startLine,
+            endLine: func.endLine,
+            code: func.code
+        }));
+    } else {
+        blocks = chunkCode(processedCode);
+    }
+
     const chunkResponses = [];
     const providers = new Set();
     let totalLatencyMs = 0;
 
-    for (const chunk of chunks) {
-        const numberedChunkCode = addLineNumbers(chunk.code);
+    for (const block of blocks) {
+        const numberedChunkCode = addLineNumbers(block.code);
         const prompt = buildReviewPrompt({
             language,
             code: numberedChunkCode,
             mode,
             chunk: {
-                index: chunk.index,
-                startLine: chunk.startLine,
-                endLine: chunk.endLine,
-                totalChunks: chunks.length,
+                index: block.index,
+                startLine: block.startLine,
+                endLine: block.endLine,
+                totalChunks: blocks.length,
             },
+            astContext: isAst ? astResult : null
         });
 
         const { result, provider, latency_ms } = await llmRouter.generateReview({
@@ -43,7 +62,7 @@ export async function runCodeReview({ language, code, mode, requestId }) {
         totalLatencyMs += latency_ms;
 
         const cleaned = cleanResponse(result);
-        const lineOffset = chunk.startLine - 1;
+        const lineOffset = block.startLine - 1;
 
         chunkResponses.push({
             summary: cleaned.summary,
@@ -65,7 +84,7 @@ export async function runCodeReview({ language, code, mode, requestId }) {
         requestId,
         language,
         providers: providerLabel,
-        chunks: chunks.length,
+        chunks: blocks.length,
         findings: merged.findings.length,
         latency_ms: totalLatencyMs,
     });
@@ -76,6 +95,7 @@ export async function runCodeReview({ language, code, mode, requestId }) {
             cached: false,
             provider: providerLabel || "unknown",
             latency_ms: totalLatencyMs,
+            complexity_score: isAst ? complexityScore : null
         },
     };
 
