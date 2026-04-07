@@ -33,6 +33,22 @@ export const serviceRegistry = Object.freeze({
 		host: DEFAULT_HOST,
 		port: portFromEnv("intelligence-enginev3", 4003),
 	}),
+	"intelligence-enginev4": Object.freeze({
+		host: DEFAULT_HOST,
+		port: portFromEnv("intelligence-enginev4", 4004),
+	}),
+	notification: Object.freeze({
+		host: DEFAULT_HOST,
+		port: portFromEnv("notification", 4005),
+	}),
+	github: Object.freeze({
+		host: DEFAULT_HOST,
+		port: portFromEnv("github", 4006),
+	}),
+	course: Object.freeze({
+		host: DEFAULT_HOST,
+		port: portFromEnv("course", 4007),
+	}),
 });
 
 export function getServiceTarget(serviceName) {

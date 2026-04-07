@@ -1,7 +1,2 @@
-export const asyncHandler = (requestHandler) => {
-    return async (req, res, next) => {
-        Promise.
-            resolve(requestHandler(req, res, next)).
-            catch((err) => next(err));
-    };
-}
+// Re-exported from @menticode/shared — do not add local logic here.
+export { asyncHandler } from "@menticode/shared";

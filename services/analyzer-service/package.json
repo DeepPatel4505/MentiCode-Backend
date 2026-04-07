@@ -1,5 +1,5 @@
 {
-    "name": "analysis-service",
+    "name": "@menticode/analyzer",
     "version": "1.0.0",
     "description": "",
     "main": "src/server.js",

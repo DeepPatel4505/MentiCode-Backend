@@ -7,7 +7,11 @@
         ".": "./index.js",
         "./ApiResponse": "./src/ApiResponse.js",
         "./ApiError": "./src/ApiError.js",
-        "./logger": "./src/logger.js"
+        "./logger": "./src/logger.js",
+        "./asyncHandler": "./src/asyncHandler.js",
+        "./errorHandler": "./src/errorHandler.js",
+        "./notFoundHandler": "./src/notFoundHandler.js",
+        "./serviceRegistry": "./src/serviceRegistry.js"
     },
     "dependencies": {
         "pino": "^10.3.1",

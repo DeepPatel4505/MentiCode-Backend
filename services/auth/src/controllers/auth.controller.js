@@ -18,9 +18,6 @@ import {
   forgotPasswordMailgenContent,
 } from "../utils/mail.js";
 
-import dotenv from "dotenv";
-dotenv.config()
-
 import axios from "axios";
 import { googleClient, githubConfig } from "../config/oauth.js";
 
@@ -277,9 +274,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies.refreshToken;
 
-  console.log("Incoming refresh token:", incomingRefreshToken);
   if (!incomingRefreshToken) {
-    console.log("Refresh token is missing in the request");
     return res.status(200).json(new ApiResponse(200, null, "Refresh token is missing"));
   }
   
@@ -562,15 +557,12 @@ const googleLogin = (req, res) => {
     scope: ["openid", "profile", "email"],
     redirect_uri: callbackUrl
   });
-  console.log(url)
   res.redirect(url);
 };
 const googleCallback = asyncHandler(async (req, res) => {
   const callbackUrl = resolveOAuthCallbackUrl(req, "google");
 
   const { code } = req.query;
-  console.log(code);
-  console.log(process.env.GOOGLE_CLIENT_ID)
 
   const { tokens } = await googleClient.getToken({code,redirect_uri:callbackUrl});
 

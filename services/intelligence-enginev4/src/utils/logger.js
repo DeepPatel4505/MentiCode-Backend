@@ -1,24 +1,15 @@
-function write(level, event, meta = {}) {
-    const payload = {
-        timestamp: new Date().toISOString(),
-        level,
-        event,
-        ...meta,
-    };
+// Adapter: wraps @menticode/shared logger to expose the same
+// logger.info(event, meta) call signature used throughout intelligence-enginev4.
+import { logger as sharedLogger } from "@menticode/shared";
 
-    const line = JSON.stringify(payload);
+const base = sharedLogger.base;
 
-    if (level === "error" || level === "fatal") {
-        console.error(line);
-        return;
-    }
-
-    console.log(line);
-}
-
-export default {
-    info: (event, meta) => write("info", event, meta),
-    warn: (event, meta) => write("warn", event, meta),
-    error: (event, meta) => write("error", event, meta),
-    fatal: (event, meta) => write("fatal", event, meta),
+const logger = {
+    debug: (event, meta = {}) => base.debug(meta, event),
+    info:  (event, meta = {}) => base.info(meta, event),
+    warn:  (event, meta = {}) => base.warn(meta, event),
+    error: (event, meta = {}) => base.error(meta, event),
+    fatal: (event, meta = {}) => base.fatal(meta, event),
 };
+
+export default logger;

@@ -1,5 +1,5 @@
 {
-  "name": "intelligence-enginev4",
+  "name": "@menticode/intelligence-enginev4",
   "version": "1.0.0",
   "description": "IE4 (Intelligence Engine v4) backend service",
   "type": "module",
@@ -12,6 +12,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@menticode/shared": "*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",

@@ -1,7 +1,7 @@
 {
-  "name": "projectmanagement",
+  "name": "@menticode/auth",
   "version": "1.0.0",
-  "description": "A project management backend ",
+  "description": "MentiCode authentication service",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@menticode/shared": "*",
     "@prisma/client": "^5.22.0",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
@@ -19,10 +20,8 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-validator": "^7.3.1",
-    "fund": "^1.0.0",
     "google-auth-library": "^10.6.1",
     "jsonwebtoken": "^9.0.3",
-    "mailer": "^0.6.6",
     "mailgen": "^2.0.32",
     "nodemailer": "^8.0.1",
     "nodemon": "^3.1.14"
