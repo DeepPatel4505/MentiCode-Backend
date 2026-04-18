@@ -54,11 +54,25 @@ async function main() {
     .map(dirent => dirent.name)
     .filter(name => existsSync(join(servicesDir, name, 'package.json')));
 
+  const runnableServices = validServices.map(service => ({
+    name: service,
+    serviceDir: service,
+    npmCommand: command
+  }));
+
+  if (validServices.includes('analyzer-service')) {
+    runnableServices.push({
+      name: 'analyzer-service-worker',
+      serviceDir: 'analyzer-service',
+      npmCommand: 'worker'
+    });
+  }
+
   let requestedServices = args.flatMap(arg => arg.split(',')).map(s => s.trim()).filter(Boolean);
 
   if (requestedServices.length === 0) {
     console.log(`\x1b[36mAvailable services:\x1b[0m`);
-    validServices.forEach((s, i) => console.log(`  \x1b[33m${i + 1}.\x1b[0m ${s}`));
+    runnableServices.forEach((s, i) => console.log(`  \x1b[33m${i + 1}.\x1b[0m ${s.name}`));
     console.log("");
     
     console.log(`You can run specific services by numbers (e.g. "1, 3, 4") or names (e.g. "auth, gateway").`);
@@ -70,8 +84,8 @@ async function main() {
       requestedServices = requestedServices.map(req => {
         if (/^\d+$/.test(req)) {
           const index = parseInt(req, 10) - 1;
-          if (index >= 0 && index < validServices.length) {
-            return validServices[index];
+          if (index >= 0 && index < runnableServices.length) {
+            return runnableServices[index].name;
           }
         }
         return req;
@@ -79,19 +93,19 @@ async function main() {
     }
   }
 
-  let servicesToRun = validServices;
+  let servicesToRun = runnableServices.map(s => s.name);
 
   if (requestedServices.length > 0) {
     servicesToRun = [];
     requestedServices.forEach(req => {
-      const matched = validServices.find(s => 
-        s.toLowerCase() === req.toLowerCase() || 
-        s.toLowerCase().includes(req.toLowerCase())
+      const matched = runnableServices.find(s => 
+        s.name.toLowerCase() === req.toLowerCase() || 
+        s.name.toLowerCase().includes(req.toLowerCase())
       );
       
       if (matched) {
-        if (!servicesToRun.includes(matched)) {
-          servicesToRun.push(matched);
+        if (!servicesToRun.includes(matched.name)) {
+          servicesToRun.push(matched.name);
         }
       } else {
         console.warn(`\x1b[31mWarning: Service matching '${req}' not found or no package.json.\x1b[0m`);
@@ -108,24 +122,33 @@ async function main() {
   console.log(servicesToRun.map(s => ` - ${s}`).join('\n'));
   console.log("\n\x1b[36m>> Press Ctrl+C at any time to immediately close all terminals and stop services <<\x1b[0m\n");
 
-  servicesToRun.forEach(service => {
-    const servicePath = join(servicesDir, service);
-    
+  function startTerminal(title, servicePath, npmCommand) {
     // We launch via PowerShell so we can cleanly capture the exact PID of the new command window.
     // ArgumentList is wrapped in single quotes so double quotes inside are passed straight to the CMD process.
-    const psCmd = `(Start-Process cmd.exe -ArgumentList '/k title ${service} && cd /d "${servicePath}" && npm run ${command}' -PassThru).Id`;
-    
+    const psCmd = `(Start-Process cmd.exe -ArgumentList '/k title ${title} && cd /d "${servicePath}" && npm run ${npmCommand}' -PassThru).Id`;
+
     try {
         const out = spawnSync('powershell', ['-NoProfile', '-Command', psCmd], { encoding: 'utf8' });
         const pid = out.stdout.trim();
         if (pid && !isNaN(pid)) {
           childPids.push(pid);
         } else {
-          console.error(`Failed to capture PID for ${service}`);
+          console.error(`Failed to capture PID for ${title}`);
         }
     } catch(e) {
-        console.error(`Error starting ${service}:`, e.message);
+        console.error(`Error starting ${title}:`, e.message);
     }
+  }
+
+  servicesToRun.forEach(serviceName => {
+    const runnableService = runnableServices.find(s => s.name === serviceName);
+    if (!runnableService) {
+      console.warn(`\x1b[31mWarning: Skipping unknown runnable service '${serviceName}'.\x1b[0m`);
+      return;
+    }
+
+    const servicePath = join(servicesDir, runnableService.serviceDir);
+    startTerminal(runnableService.name, servicePath, runnableService.npmCommand);
   });
 
   // Keep the process alive so we can capture Ctrl+C
