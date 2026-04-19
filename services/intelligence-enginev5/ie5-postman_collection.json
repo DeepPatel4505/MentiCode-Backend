@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "MentiCode Intelligence Engine v5 (IE5)",
+    "description": "API collection for testing the IE5 stateful session-based code analysis engine.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Checks connectivity to the PostgreSQL database and overall service health."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Start Code Review (POST /review)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData && jsonData.sessionId) {",
+              "    pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role = 'admin') {\\n    return true;\\n  }\\n  return false;\\n}\\n\\nfunction getUser() {\\n  return possiblyNull;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/review",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "review"
+          ]
+        },
+        "description": "Starts a non-blocking asynchronous code analysis session. Automatically saves the returned `sessionId` into your Postman variables for future requests."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Poll Session Status (GET /review/:id)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "review",
+            "{{SESSION_SESSION_ID}}"
+          ]
+        },
+        "description": "Polls for the progress and findings associated with the active session ID. Keep hitting this until status changes from 'ANALYSING' to 'DONE'."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Re-analyse Updated Code (POST /review/:id/reanalyse)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role === 'admin') { // Fixed the assignment bug\\n    return true;\\n  }\\n  return false;\\n}\\n\\nfunction getUser() {\\n  return possiblyNull;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/review/{{SESSION_ID}}/reanalyse",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "review",
+            "{{SESSION_ID}}",
+            "reanalyse"
+          ]
+        },
+        "description": "Submits updated code to the existing session. IE5 performs incremental analysis by skipping chunks that haven't changed using SHA-256."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Specific Finding (PATCH /findings/:id/status)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"WONTFIX\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/findings/FINDING_ID_HERE/status",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "findings",
+            "FINDING_ID_HERE",
+            "status"
+          ]
+        },
+        "description": "Marks a specific finding manually as WONTFIX or ACKNOWLEDGED. Note: You need to replace 'FINDING_ID_HERE' in the URL with an ID returned from the Poll route."
+      },
+      "response": []
+    },
+    {
+      "name": "6. IE4 Compat Mode (POST /code_review)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function calculateArea(radius) {\\n  return Math.PI * radius * radius;\\n}\\nconsole.log(calculateArea());\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5001/code_review",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "code_review"
+          ]
+        },
+        "description": "The backward compatible fallback endpoint intended for the legacy frontend UI. Operates completely synchronously with a maximum wait time of two minutes."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "SESSION_ID",
+      "value": "ENTER_YOUR_SESSION_ID_HERE_OR_RUN_ROUTE_2"
+    }
+  ]
+}

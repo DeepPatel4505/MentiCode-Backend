@@ -1,0 +1,69 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ReviewSession {
+  id        String        @id @default(cuid())
+  language  String
+  filePath  String?
+  status    SessionStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  chunks    Chunk[]
+}
+
+model Chunk {
+  id         String        @id @default(cuid())
+  sessionId  String
+  session    ReviewSession @relation(fields: [sessionId], references: [id])
+  chunkType  String        // "function_declaration" | "class_declaration" | "block" | etc.
+  name       String        // e.g. "UserService.getUser"
+  startLine  Int
+  endLine    Int
+  hash       String        // sha256 (first 16 hex chars) of normalised code
+  analysedAt DateTime?
+  findings   Finding[]
+}
+
+model Finding {
+  id                   String        @id @default(cuid())
+  chunkId              String
+  chunk                Chunk         @relation(fields: [chunkId], references: [id])
+  line                 Int
+  issue                String
+  why                  String
+  hint                 String
+  severity             Severity
+  status               FindingStatus @default(OPEN)
+  chunkHashAtDetection String        // hash of chunk when finding was first detected
+  createdAt            DateTime      @default(now())
+  resolvedAt           DateTime?
+}
+
+enum SessionStatus {
+  PENDING
+  ANALYSING
+  DONE
+  FAILED
+}
+
+enum Severity {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum FindingStatus {
+  OPEN
+  FIXED
+  WONTFIX
+  REGRESSED
+  ACKNOWLEDGED
+}
