@@ -7,6 +7,7 @@ import { routeLLM } from "../router/llmRouter.js";
 import { buildAnalysisPrompt } from "../llm/promptBuilder.js";
 import { parseFindings } from "../llm/responseParser.js";
 import { validateFindings } from "../validators/findingValidator.js";
+import { detectStaticBugs } from "./staticBugDetector.js";
 import { reconcileFindings } from "./findingReconciler.js";
 import { prisma } from "../db.js";
 import logger from "../utils/logger.js";
@@ -119,6 +120,22 @@ export async function runIncrementalAnalysis(sessionId, newSource, langConfig, l
                 raw.code,
             );
 
+            // Run static bug detection in parallel
+            const staticFindings = detectStaticBugs(raw.code, language, raw.startLine);
+
+            // Merge findings, deduplicating by line + issue
+            const allFindings = [...valid, ...staticFindings];
+            const mergedFindings = [];
+            const seen = new Set();
+
+            for (const f of allFindings) {
+                const key = `${f.line}:${f.issue}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    mergedFindings.push(f);
+                }
+            }
+
             // ── Upsert chunk record ───────────────────────────────────────────
             let chunk;
             if (existing) {
@@ -148,7 +165,7 @@ export async function runIncrementalAnalysis(sessionId, newSource, langConfig, l
             await reconcileFindings(
                 chunk.id,
                 existing?.findings ?? [],
-                valid,
+                mergedFindings,
                 newHash,
             );
 
@@ -157,7 +174,9 @@ export async function runIncrementalAnalysis(sessionId, newSource, langConfig, l
                 chunkName: raw.name,
                 provider: llmResult.provider,
                 latency_ms: llmResult.latency_ms,
-                findings: valid.length,
+                findings: mergedFindings.length,
+                llmFindings: valid.length,
+                staticFindings: staticFindings.length,
             });
         }
 

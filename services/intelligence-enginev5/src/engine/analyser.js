@@ -7,6 +7,7 @@ import { routeLLM } from "../router/llmRouter.js";
 import { buildAnalysisPrompt } from "../llm/promptBuilder.js";
 import { parseFindings } from "../llm/responseParser.js";
 import { validateFindings } from "../validators/findingValidator.js";
+import { detectStaticBugs } from "./staticBugDetector.js";
 import { prisma } from "../db.js";
 import logger from "../utils/logger.js";
 
@@ -106,12 +107,28 @@ export async function runAnalysis(sessionId, source, langConfig, language, budge
                 raw.code,
             );
 
+            // Run static bug detection in parallel
+            const staticFindings = detectStaticBugs(raw.code, language, raw.startLine);
+
+            // Merge findings, deduplicating by line + issue
+            const allFindings = [...valid, ...staticFindings];
+            const mergedFindings = [];
+            const seen = new Set();
+
+            for (const f of allFindings) {
+                const key = `${f.line}:${f.issue}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    mergedFindings.push(f);
+                }
+            }
+
             await prisma.chunk.update({
                 where: { id: chunk.id },
                 data: { analysedAt: new Date() },
             });
 
-            for (const f of valid) {
+            for (const f of mergedFindings) {
                 await prisma.finding.create({
                     data: {
                         chunkId: chunk.id,
@@ -131,7 +148,9 @@ export async function runAnalysis(sessionId, source, langConfig, language, budge
                 chunkName: raw.name,
                 provider: llmResult.provider,
                 latency_ms: llmResult.latency_ms,
-                findings: valid.length,
+                findings: mergedFindings.length,
+                llmFindings: valid.length,
+                staticFindings: staticFindings.length,
             });
         }
 

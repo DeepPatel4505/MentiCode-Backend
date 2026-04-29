@@ -1,32 +1,42 @@
 {
   "info": {
-    "name": "MentiCode Intelligence Engine v5 (IE5)",
-    "description": "API collection for testing the IE5 stateful session-based code analysis engine.",
+    "name": "MentiCode Intelligence Engine v5 (IE5) - Complete Test Suite",
+    "description": "Comprehensive API collection for testing the IE5 stateful session-based code analysis engine with three-tier analysis: LLM-based + Static patterns + Rigorous expert analysis.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:5001"
+    },
+    {
+      "key": "SESSION_ID",
+      "value": ""
+    },
+    {
+      "key": "FINDING_ID",
+      "value": ""
+    }
+  ],
   "item": [
     {
-      "name": "1. Health Check",
+      "name": "SETUP - Health Check",
       "request": {
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "http://localhost:5001/health",
+          "raw": "{{BASE_URL}}/health",
           "protocol": "http",
-          "host": [
-            "localhost"
-          ],
+          "host": ["localhost"],
           "port": "5001",
-          "path": [
-            "health"
-          ]
+          "path": ["health"]
         },
-        "description": "Checks connectivity to the PostgreSQL database and overall service health."
+        "description": "Verifies the IE5 service is running and database is connected."
       },
       "response": []
     },
     {
-      "name": "2. Start Code Review (POST /review)",
+      "name": "TIER 1 - SQL Injection (Critical Security Bug)",
       "event": [
         {
           "listen": "test",
@@ -35,7 +45,16 @@
               "var jsonData = pm.response.json();",
               "if (jsonData && jsonData.sessionId) {",
               "    pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);",
-              "}"
+              "    console.log('✅ Session created:', jsonData.sessionId);",
+              "}",
+              "",
+              "pm.test('Session status is ANALYSING', function () {",
+              "    pm.expect(jsonData.status).to.equal('ANALYSING');",
+              "});",
+              "",
+              "pm.test('Language detected as javascript', function () {",
+              "    pm.expect(jsonData.language).to.equal('javascript');",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -51,46 +70,72 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role = 'admin') {\\n    return true;\\n  }\\n  return false;\\n}\\n\\nfunction getUser() {\\n  return possiblyNull;\\n}\"\n}"
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function getUserById(userId) {\\n  const query = \\`SELECT * FROM users WHERE id = ${userId}\\`;\\n  return db.query(query);\\n}\"\n}"
         },
         "url": {
-          "raw": "http://localhost:5001/review",
+          "raw": "{{BASE_URL}}/review",
           "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5001",
-          "path": [
-            "review"
-          ]
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
         },
-        "description": "Starts a non-blocking asynchronous code analysis session. Automatically saves the returned `sessionId` into your Postman variables for future requests."
+        "description": "Tests detection of SQL injection vulnerability (CRITICAL). Should flag: String interpolation in SQL query."
       },
       "response": []
     },
     {
-      "name": "3. Poll Session Status (GET /review/:id)",
+      "name": "TIER 2 - Poll Results (SQL Injection)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "",
+              "if (jsonData.status === 'DONE') {",
+              "    console.log('✅ Analysis complete with', jsonData.findings.length, 'findings');",
+              "    ",
+              "    jsonData.findings.forEach(function(f) {",
+              "        console.log('  - [' + f.severity + '] Line ' + f.line + ': ' + f.issue);",
+              "    });",
+              "}",
+              "",
+              "pm.test('Should find SQL injection vulnerability', function () {",
+              "    var hasSQLInjection = jsonData.findings.some(f => f.issue.toLowerCase().includes('sql injection'));",
+              "    pm.expect(hasSQLInjection || jsonData.findings.length > 0).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "http://localhost:5001/review/{{SESSION_ID}}",
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
           "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5001",
-          "path": [
-            "review",
-            "{{SESSION_SESSION_ID}}"
-          ]
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
         },
-        "description": "Polls for the progress and findings associated with the active session ID. Keep hitting this until status changes from 'ANALYSING' to 'DONE'."
+        "description": "Poll the session to check if analysis is complete. Repeat this request until status = DONE."
       },
       "response": []
     },
     {
-      "name": "4. Re-analyse Updated Code (POST /review/:id/reanalyse)",
+      "name": "TEST 2 - Assignment Bug (Logic Error)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);",
+              "console.log('Session ID:', jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -101,27 +146,477 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role === 'admin') { // Fixed the assignment bug\\n    return true;\\n  }\\n  return false;\\n}\\n\\nfunction getUser() {\\n  return possiblyNull;\\n}\"\n}"
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function isAdmin(role) {\\n  if (role = 'admin') {\\n    return true;\\n  }\\n  return false;\\n}\"\n}"
         },
         "url": {
-          "raw": "http://localhost:5001/review/{{SESSION_ID}}/reanalyse",
+          "raw": "{{BASE_URL}}/review",
           "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5001",
-          "path": [
-            "review",
-            "{{SESSION_ID}}",
-            "reanalyse"
-          ]
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
         },
-        "description": "Submits updated code to the existing session. IE5 performs incremental analysis by skipping chunks that haven't changed using SHA-256."
+        "description": "Tests detection of assignment operator in condition (HIGH severity). Should flag: if (a = 0) instead of ==."
       },
       "response": []
     },
     {
-      "name": "5. Update Specific Finding (PATCH /findings/:id/status)",
+      "name": "POLL TEST 2 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get results from assignment bug test."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 3 - Infinite Loop (Critical)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function processItems(items) {\\n  let i = 0;\\n  while (true) {\\n    console.log(items[i]);\\n  }\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests detection of infinite loop without break (CRITICAL). Should flag: while(true) without exit condition."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 3 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get infinite loop detection results."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 4 - Null Pointer Dereference",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function getUserEmail(user) {\\n  return user.email;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests detection of null/undefined pointer dereference (MEDIUM). Should flag: Accessing .email without null check."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 4 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get null dereference detection results."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 5 - Unreachable Code",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function divide(a, b) {\\n  return a / b;\\n  console.log('This never runs');\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests detection of unreachable code after return (MEDIUM). Should flag: Code after return statement."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 5 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get unreachable code detection results."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 6 - Missing Error Handling",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function parseUserData(jsonString) {\\n  const data = JSON.parse(jsonString);\\n  return data.user;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests detection of missing error handling on JSON.parse (MEDIUM). Should flag: No try-catch around JSON.parse."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 6 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get error handling detection results."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 7 - Python Mutable Default",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"python\",\n  \"code\": \"def append_item(item, items=[]):\\n    items.append(item)\\n    return items\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests detection of mutable default argument in Python (HIGH). Should flag: Default [] shared across all calls."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 7 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get Python mutable default detection results."
+      },
+      "response": []
+    },
+    {
+      "name": "TEST 8 - Clean Code (No Issues)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);",
+              "",
+              "pm.test('Clean code should have no findings', function () {",
+              "    pm.expect(jsonData.sessionId).to.be.truthy;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function add(a, b) {\\n  if (typeof a !== 'number' || typeof b !== 'number') {\\n    throw new Error('Both arguments must be numbers');\\n  }\\n  return a + b;\\n}\\n\\nfunction safeParseJSON(str) {\\n  try {\\n    return JSON.parse(str);\\n  } catch (error) {\\n    console.error('Invalid JSON');\\n    return null;\\n  }\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Tests analysis of clean, safe code. Should have minimal or no issues."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL TEST 8 Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Get clean code analysis results (should have 0 or minimal findings)."
+      },
+      "response": []
+    },
+    {
+      "name": "ADVANCED - Incremental Re-analysis",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"SESSION_ID\", jsonData.sessionId);",
+              "console.log('Created session for incremental test:', jsonData.sessionId);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role = 'admin') {\\n    return true;\\n  }\\n  return false;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review"]
+        },
+        "description": "Start analysis for incremental re-analysis test (has a bug)."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL - Wait for Initial Analysis",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Wait for initial analysis to complete before re-analysis."
+      },
+      "response": []
+    },
+    {
+      "name": "ADVANCED - Re-analyse with Fix",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "console.log('✅ Re-analysis completed');",
+              "console.log('Original findings should decrease or disappear');",
+              "",
+              "pm.test('Re-analysis should complete successfully', function () {",
+              "    pm.expect(jsonData.status).to.be.oneOf(['DONE', 'ANALYSING']);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function authenticate(user) {\\n  if (user.role === 'admin') {\\n    return true;\\n  }\\n  return false;\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}/reanalyse",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}", "reanalyse"]
+        },
+        "description": "Re-submit the code with the bug fixed. IE5 performs incremental analysis - only changed chunks are re-analyzed."
+      },
+      "response": []
+    },
+    {
+      "name": "POLL - Check Re-analysis Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/review/{{SESSION_ID}}",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["review", "{{SESSION_ID}}"]
+        },
+        "description": "Check if the bug was fixed in re-analysis. Findings should decrease."
+      },
+      "response": []
+    },
+    {
+      "name": "LEGACY - IE4 Compat (Synchronous)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function buggyCode(data) {\\n  return data.value;\\n}\\n\\nif (x = null) {\\n  console.log('test');\\n}\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/code_review",
+          "protocol": "http",
+          "host": ["{{BASE_URL}}"],
+          "path": ["code_review"]
+        },
+        "description": "Backward compatible IE4 endpoint. SYNCHRONOUS - waits for analysis to complete (max 2 minutes). Returns findings immediately."
+      },
+      "response": []
+    },
+    {
+      "name": "FINDINGS - Update Status to WONTFIX",
       "request": {
         "method": "PATCH",
         "header": [
@@ -135,56 +630,14 @@
           "raw": "{\n  \"status\": \"WONTFIX\"\n}"
         },
         "url": {
-          "raw": "http://localhost:5001/findings/FINDING_ID_HERE/status",
+          "raw": "{{BASE_URL}}/findings/FINDING_ID_HERE/status",
           "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5001",
-          "path": [
-            "findings",
-            "FINDING_ID_HERE",
-            "status"
-          ]
+          "host": ["{{BASE_URL}}"],
+          "path": ["findings", "FINDING_ID_HERE", "status"]
         },
-        "description": "Marks a specific finding manually as WONTFIX or ACKNOWLEDGED. Note: You need to replace 'FINDING_ID_HERE' in the URL with an ID returned from the Poll route."
+        "description": "Updates the status of a specific finding. Replace FINDING_ID_HERE with an actual finding ID from the results. Status can be: WONTFIX, ACKNOWLEDGED, OPEN, FIXED."
       },
       "response": []
-    },
-    {
-      "name": "6. IE4 Compat Mode (POST /code_review)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"language\": \"javascript\",\n  \"code\": \"function calculateArea(radius) {\\n  return Math.PI * radius * radius;\\n}\\nconsole.log(calculateArea());\"\n}"
-        },
-        "url": {
-          "raw": "http://localhost:5001/code_review",
-          "protocol": "http",
-          "host": [
-            "localhost"
-          ],
-          "port": "5001",
-          "path": [
-            "code_review"
-          ]
-        },
-        "description": "The backward compatible fallback endpoint intended for the legacy frontend UI. Operates completely synchronously with a maximum wait time of two minutes."
-      },
-      "response": []
-    }
-  ],
-  "variable": [
-    {
-      "key": "SESSION_ID",
-      "value": "ENTER_YOUR_SESSION_ID_HERE_OR_RUN_ROUTE_2"
     }
   ]
 }

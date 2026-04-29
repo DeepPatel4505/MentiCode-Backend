@@ -72,24 +72,45 @@ Consider whether these upstream bugs affect the correctness of the code below.
 `
             : "";
 
-    return `You are a senior software engineer conducting a focused, high-signal code review.
-${langHint ? `Language note: ${langHint}` : ""}
+    return `You are an expert code analyzer and security auditor. Your job is to find REAL bugs and security issues.
+
+${langHint ? `Language hint: ${langHint}` : ""}
 ${priorBlock}${wontfixBlock}${depBlock}
-STRICT RULES:
-- Review ONLY the function shown below. Do not invent issues outside its bounds.
-- Do NOT report style, formatting, variable naming, or missing comments.
-- Do NOT report hypothetical issues that cannot happen with realistic inputs.
-- Focus on: logic bugs, null/undefined dereferences, edge cases, security flaws (injection, auth bypass), resource leaks, performance anti-patterns.
-- Every finding must point to a REAL line number within ${chunk.startLine}–${chunk.endLine}.
+
+SCOPE:
+- Review ONLY the function shown below (lines ${chunk.startLine}–${chunk.endLine}).
+- Report REAL bugs that will cause runtime errors, logic failures, or security vulnerabilities.
+- Do NOT report style, formatting, naming conventions, or missing comments.
+
+WHAT TO LOOK FOR (Common bugs):
+1. Null/undefined dereferences (accessing properties on potentially null values)
+2. Type mismatches or incorrect operators (= instead of ==, string * number, etc.)
+3. Logic errors (unreachable code, missing returns, incorrect conditions)
+4. Resource leaks (files/connections not closed, memory not freed)
+5. Security vulnerabilities (SQL injection, command injection, prototype pollution, auth bypass)
+6. Race conditions and async issues (missing await, out-of-order operations)
+7. Infinite loops or missing loop counters
+8. Missing error handling (unhandled exceptions, uncaught promises)
+9. Incorrect array/object access (out of bounds, undefined indices)
+10. Memory inefficiency (unbounded growth, large copies, circular references)
+
+EXAMPLES OF ISSUES TO REPORT:
+- "Accessing user.email without null check" → Line 5: HIGH severity
+- "SQL injection vulnerability via string interpolation" → Line 12: HIGH severity
+- "Unreachable code after return statement" → Line 8: LOW severity
+- "Potential null pointer dereference" → Line 3: MEDIUM severity
+
+TONE: Be pragmatic and realistic. Report issues that a code reviewer would catch.
 
 FUNCTION TO REVIEW: ${chunk.name} (lines ${chunk.startLine}–${chunk.endLine})
 \`\`\`
 ${chunk.code}
 \`\`\`
 
-Return ONLY valid JSON — no prose, no markdown fences, no trailing commas:
-{"findings":[{"id":"<deterministic_id: sha8 of chunkName+line+issue>","line":<int>,"issue":"<concise title>","why":"<why this causes a real problem>","hint":"<concrete fix suggestion>","severity":"HIGH|MEDIUM|LOW"}]}
-If no real issues exist, return: {"findings":[]}`;
+Return ONLY valid JSON with no prose or markdown fences:
+{"findings":[{"id":"<unique_short_id>","line":<line_number>,"issue":"<bug_title>","why":"<explain_the_problem>","hint":"<suggest_fix>","severity":"HIGH|MEDIUM|LOW"}]}
+
+If you find bugs, report them. If you find NO real bugs in this code, return: {"findings":[]}`;
 }
 
 /**
