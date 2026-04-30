@@ -21,6 +21,7 @@ import { Router } from "express";
 import { resolveInput } from "../../ingestion/inputResolver.js";
 import { runAnalysis } from "../../engine/analyser.js";
 import { BudgetTracker } from "../../budget/budgetTracker.js";
+import { persistSessionFile } from "../../ingestion/storage.js";
 import { prisma } from "../../db.js";
 
 const router = Router();
@@ -97,6 +98,14 @@ router.post("/", async (req, res, next) => {
                 status: "PENDING",
             },
         });
+
+        if (code) {
+            const savedPath = await persistSessionFile(session.id, resolved.source, resolved.language);
+            await prisma.reviewSession.update({
+                where: { id: session.id },
+                data: { filePath: savedPath },
+            });
+        }
 
         const budget = new BudgetTracker();
         runAnalysis(
