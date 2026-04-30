@@ -27,6 +27,7 @@ model User {
 
   googleId String? @unique
   githubId String? @unique
+  githubAccessToken String? @db.Text
 
   loginProvider LoginProvider @default(local)
 

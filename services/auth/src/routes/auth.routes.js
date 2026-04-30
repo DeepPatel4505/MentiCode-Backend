@@ -15,7 +15,8 @@ import {
   googleLogin,
   googleCallback,
   githubLogin,
-  githubCallback
+  githubCallback,
+  githubConnect
 } from "../controllers/auth.controller.js";
 
 import {
@@ -53,6 +54,7 @@ router.get("/github", githubLogin);
 router.get("/github/callback", githubCallback);
 
 
+
 //secure routes
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/me").get(verifyJWT, getCurrentUser);
@@ -61,5 +63,6 @@ router
   .post(verifyJWT, resendVerificationEmail);
 router.route("/change-password").post(verifyJWT, userChangeCurrentPasswordValidator(), validate, changePassword)
 router.route("/upgrade").post(verifyJWT,upgradeUser);
+router.route("/github/connect").get(verifyJWT, githubConnect);
 
 export default router;
