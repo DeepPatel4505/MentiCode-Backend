@@ -658,7 +658,9 @@ const githubCallback = asyncHandler(async (req, res) => {
     }
 
     let user;
-    if (state?.startsWith("connect:")) {
+    const isConnectFlow = state?.startsWith("connect:");
+    
+    if (isConnectFlow) {
         const userId = state.split(":")[1];
 
         const existingGithubUser = await prisma.user.findUnique({
@@ -719,8 +721,15 @@ const githubCallback = asyncHandler(async (req, res) => {
     };
 
     res.cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
-        .redirect(resolveFrontendRedirectUrl(req));
+        .cookie("refreshToken", refreshToken, options);
+
+    // For connect flow, redirect to profile with success indicator
+    // For login flow, redirect to frontend root
+    if (isConnectFlow) {
+        res.redirect(`${resolveFrontendRedirectUrl(req)}/profile?github=connected`);
+    } else {
+        res.redirect(resolveFrontendRedirectUrl(req));
+    }
 });
 
 const githubConnect = (req, res) => {
