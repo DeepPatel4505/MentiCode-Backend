@@ -6,6 +6,7 @@ export const generateAccessToken = (user) => {
     { 
         id: user.id, 
         email: user.email,
+        role: user.role,
         jti: crypto.randomBytes(16).toString("hex")
     },
     process.env.ACCESS_TOKEN_SECRET,
@@ -18,6 +19,7 @@ export const generateRefreshToken = (user) => {
     { 
         id: user.id,
         email: user.email,
+        role: user.role,
         jti: crypto.randomBytes(16).toString("hex")
     },
     process.env.REFRESH_TOKEN_SECRET,

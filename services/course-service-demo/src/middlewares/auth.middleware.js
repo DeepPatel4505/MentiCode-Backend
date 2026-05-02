@@ -4,7 +4,7 @@ import { ApiError } from "../utils/api-error.js";
 
 // In course-service, we verify the JWT but do NOT hit the DB —
 // user-service already validated the user on login.
-// The token payload contains { id, email } — enough for ownership checks.
+// The token payload contains { id, email, role, jti } — enough for ownership and role checks.
 export const verifyJWT = asyncHandler(async (req, res, next) => {
   const token =
     req.cookies?.accessToken ||

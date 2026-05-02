@@ -48,7 +48,7 @@ const worker = new Worker(
 				throw new Error("File not found");
 			}
 
-			const code = readFileContentFromStoragePath(file);
+			const code = await readFileContentFromStoragePath(file);
 			console.log("Code to analyze:", code);
 			const engineStartMs = Date.now();
 

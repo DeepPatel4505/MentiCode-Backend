@@ -108,7 +108,7 @@ int main() {
             {
                 name: "problem1.cpp",
                 language: "cpp",
-                storagePath: `inline://${encodeURIComponent(file_code)}`,
+                content: file_code,
             },
         ],
     };

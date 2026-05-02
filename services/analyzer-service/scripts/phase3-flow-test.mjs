@@ -113,7 +113,7 @@ async function run() {
 			{
 				name: "app.js",
 				language: "javascript",
-				storagePath: `inline://${encodeURIComponent(code)}`,
+				content: code,
 			},
 		],
 	};

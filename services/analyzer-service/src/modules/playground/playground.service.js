@@ -1,4 +1,7 @@
 import prisma from "../../config/prisma.js";
+import fs from "fs/promises";
+import path from "path";
+import { readFileContentFromStoragePath } from "../../utils/storage.js";
 
 const VALID_SOURCE_TYPES = new Set(["upload", "github"]);
 
@@ -12,6 +15,7 @@ export async function createPlaygroundForUser(userId, payload) {
     const name = payload?.name?.trim();
     const sourceType = payload?.sourceType || "upload";
     const inputFiles = Array.isArray(payload?.files) ? payload.files : [];
+    console.log("FILE INPUT:", inputFiles);
 
     if (!name) {
         throw toBadRequest("Validation failed");
@@ -40,20 +44,24 @@ export async function createPlaygroundForUser(userId, payload) {
             },
         });
 
-        if (sourceType === "upload" && inputFiles.length > 0) {
+        if (inputFiles.length > 0) {
             const filesData = inputFiles
                 .filter(
                     (file) =>
                         typeof file?.name === "string" && file.name.trim(),
                 )
-                .map((file) => ({
-                    playgroundId: playground.id,
-                    name: file.name.trim(),
-                    language: (file.language || "plaintext").toString(),
-                    storagePath:
-                        file.storagePath ||
-                        `playgrounds/${playground.id}/${file.name.trim()}`,
-                }));
+                .map((file) => {
+                    const safeName = file.name.trim().replace(/^[\/\\]+/, '').replace(/\.\.[\/\\]/g, '');
+                    let sp = file.storagePath;
+                    if (sp && sp.startsWith("inline:")) sp = null;
+                    
+                    return {
+                        playgroundId: playground.id,
+                        name: safeName,
+                        language: (file.language || "plaintext").toString(),
+                        storagePath: sp || `playgrounds/${playground.id}/${safeName}`,
+                    };
+                });
 
             if (filesData.length > 0) {
                 await tx.file.createMany({ data: filesData });
@@ -62,6 +70,26 @@ export async function createPlaygroundForUser(userId, payload) {
 
         return playground;
     });
+
+    // Write files to server storage
+    if (inputFiles.length > 0) {
+        const BASE_STORAGE = path.join(process.cwd(), "storage");
+        const validFiles = inputFiles.filter(
+            (file) => typeof file?.name === "string" && file.name.trim()
+        );
+
+        await Promise.all(
+            validFiles.map(async (file) => {
+                const safeName = file.name.trim().replace(/^[\/\\]+/, '').replace(/\.\.[\/\\]/g, '');
+                const content = file.content || "// empty file\n";
+
+                const storagePath = `playgrounds/${created.id}/${safeName}`;
+                const absPath = path.join(BASE_STORAGE, storagePath);
+                await fs.mkdir(path.dirname(absPath), { recursive: true });
+                await fs.writeFile(absPath, content || "// empty file\n", "utf8");
+            })
+        );
+    }
 
     return created;
 }
@@ -121,13 +149,10 @@ export async function deletePlaygroundForUser(userId, playgroundId) {
         where: { id: playgroundId },
     });
 
-    //files cleanup - in future when files are not stored in DB but in external storage (e.g., S3),
-    // we can do the cleanup here by calling the storage service to delete the files
+    // delete files from storage
+    const BASE_STORAGE = path.join(process.cwd(), "storage");
+    const playgroundStoragePath = path.join(BASE_STORAGE, "playgrounds", playgroundId);
+    await fs.rm(playgroundStoragePath, { recursive: true, force: true }).catch(() => {});
 
-    // for (const file of filesToDelete) {
-    //     const filePath = file.storagePath;
-    //     //delete file from storage (e.g., S3)
-    //     //await deleteFileFromStorage(filePath);
-    // }
     return deleted;
 }

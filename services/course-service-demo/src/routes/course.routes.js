@@ -21,7 +21,7 @@ router.route("/slug/:slug").get(getCourseBySlug);
 
 // Protected
 router.route("/my").get(verifyJWT, getMyCourses);
-router.route("/").post(verifyJWT, authorizeRoles("admin", "instructor"), createCourseValidator(), validate, createCourse);
+router.route("/").post(verifyJWT, authorizeRoles("admin"), createCourseValidator(), validate, createCourse);
 router.route("/:id").get(verifyJWT, getCourseById);
 router.route("/:id").patch(verifyJWT, updateCourseValidator(), validate, updateCourse);
 router.route("/:id").delete(verifyJWT, deleteCourse);

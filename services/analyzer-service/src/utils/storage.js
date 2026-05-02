@@ -1,7 +1,13 @@
-export function readFileContentFromStoragePath(file) {
-	if (typeof file?.storagePath === "string" && file.storagePath.startsWith("inline://")) {
-		return decodeURIComponent(file.storagePath.slice("inline://".length));
-	}
+import fs from "fs/promises";
+import path from "path";
 
-	throw new Error("File content unavailable in storage");
+const BASE_STORAGE = path.join(process.cwd(), "storage");
+
+export async function readFileFromDisk(storagePath) {
+	const absPath = path.join(BASE_STORAGE, storagePath);
+	return fs.readFile(absPath, "utf-8");
+}
+
+export async function readFileContentFromStoragePath(file) {
+	return readFileFromDisk(file.storagePath);
 }

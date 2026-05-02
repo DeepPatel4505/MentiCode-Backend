@@ -19,6 +19,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
         username: true,
         email: true,
         githubId: true,
+        githubAccessToken: true,
         role: true,
         plan: true,
         loginProvider: true,

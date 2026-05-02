@@ -16,7 +16,8 @@ import {
   googleCallback,
   githubLogin,
   githubCallback,
-  githubConnect
+  githubConnect,
+  refreshGithubToken
 } from "../controllers/auth.controller.js";
 
 import {
@@ -58,6 +59,7 @@ router.get("/github/callback", githubCallback);
 //secure routes
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/me").get(verifyJWT, getCurrentUser);
+router.route("/github/token/refresh").get(verifyJWT, refreshGithubToken);
 router
   .route("/resend-email-verification")
   .post(verifyJWT, resendVerificationEmail);

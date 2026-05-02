@@ -1,44 +1,48 @@
-export function createOllamaProvider({ baseUrl = "http://localhost:11434", model = "mistral" } = {}) {
+import { Ollama } from "ollama";
+
+export function createOllamaProvider({
+    model = process.env.OLLAMA_MODEL || "mistral",
+    apiKey = process.env.OLLAMA_API_KEY,
+} = {}) {
+    if (!apiKey) {
+        throw new Error("OLLAMA_API_KEY is required");
+    }
+
+    const client = new Ollama({
+        host: "https://ollama.com",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+        },
+    });
+
     return {
         name: "ollama",
+
         async generate({ language, code, mode, prompt, signal }) {
             if (signal?.aborted) {
                 throw new Error("Request aborted");
             }
 
             try {
-                const response = await fetch(`${baseUrl}/api/generate`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        model,
-                        prompt,
-                        stream: false,
-                        format: "json",
-                    }),
-                    signal,
+                const res = await client.chat({
+                    model,
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt,
+                        },
+                    ],
+                    stream: false, // IMPORTANT: disable streaming for clean return
                 });
 
-                if (!response.ok) {
-                    throw new Error(
-                        `Ollama API error: ${response.status} - ${response.statusText}`,
-                    );
+                if (!res?.message?.content) {
+                    throw new Error("Empty response from Ollama");
                 }
 
-                const data = await response.json();
-                const textContent = data.response;
-
-                if (!textContent) {
-                    throw new Error("Ollama returned no content");
-                }
-
-                return textContent;
+                return res.message.content;
             } catch (error) {
-                if (error.name === "AbortError") {
-                    throw error;
-                }
+                if (error.name === "AbortError") throw error;
+
                 throw new Error(`Ollama provider failed: ${error.message}`);
             }
         },

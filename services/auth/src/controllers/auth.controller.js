@@ -200,13 +200,15 @@ const loginUser = asyncHandler(async (req, res) => {
             loginProvider: true,
             isEmailVerified: true,
             avatarUrl: true,
+            githubId: true,
+            githubAccessToken: true,
             createdAt: true,
         },
     });
 
     const options = {
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
     };
 
@@ -228,21 +230,21 @@ const loginUser = asyncHandler(async (req, res) => {
 const logoutUser = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
 
-    if (!refreshToken) {
-        throw new ApiError(400, "Refresh token missing");
+    // Revoke the refresh token in DB if it exists — but never block logout
+    // even if the cookie is already gone (e.g. expired or cleared by browser).
+    if (refreshToken) {
+        const tokenHash = crypto
+            .createHash("sha256")
+            .update(refreshToken)
+            .digest("hex");
+
+        await prisma.refreshToken
+            .updateMany({
+                where: { tokenHash, revokedAt: null },
+                data: { revokedAt: new Date() },
+            })
+            .catch(() => { /* ignore — token may already be revoked */ });
     }
-
-    const tokenHash = crypto
-        .createHash("sha256")
-        .update(refreshToken)
-        .digest("hex");
-
-    await prisma.refreshToken.updateMany({
-        where: { tokenHash },
-        data: {
-            revokedAt: new Date(),
-        },
-    });
 
     const options = {
         httpOnly: true,
@@ -695,6 +697,7 @@ const githubCallback = asyncHandler(async (req, res) => {
                     avatarUrl: avatar_url,
                     loginProvider: "github",
                     isEmailVerified: true,
+                    githubAccessToken,
                 },
             });
         } else {
@@ -705,6 +708,7 @@ const githubCallback = asyncHandler(async (req, res) => {
                     loginProvider: "github",
                     avatarUrl: avatar_url || user.avatarUrl,
                     isEmailVerified: true,
+                    githubAccessToken,
                 },
             });
         }
@@ -745,6 +749,22 @@ const githubConnect = (req, res) => {
     res.redirect(`${githubConfig.authorizeUrl}?${params}`);
 };
 
+const refreshGithubToken = asyncHandler(async (req, res) => {
+    // If user already has a token, just return it
+    if (req.user?.githubAccessToken) {
+        return res.status(200).json(
+            new ApiResponse(200, { token: req.user.githubAccessToken }, "GitHub token already exists")
+        );
+    }
+
+    // If user doesn't have githubId, they haven't connected GitHub
+    if (!req.user?.githubId) {
+        throw new ApiError(400, "User has not connected GitHub account");
+    }
+
+    throw new ApiError(400, "GitHub token is missing. Please re-login with GitHub.");
+});
+
 export {
     registerUser,
     loginUser,
@@ -762,4 +782,5 @@ export {
     githubLogin,
     githubCallback,
     githubConnect,
+    refreshGithubToken,
 };
